@@ -1,0 +1,343 @@
+{
+  "plan_id": "serverless-auto-grading",
+  "goal": "Build a serverless web platform that accepts Word/Draw.io submissions, extracts grading evidence, generates criterion-level AI scoring suggestions, and lets lecturers approve final grades.",
+  "current_step": 11,
+  "global_context": {
+    "framework": "React + Vite + TypeScript, Supabase, Supabase Edge Functions",
+    "architecture": "serverless web app with Supabase Auth, Postgres, Storage, Edge Functions, asynchronous grading jobs, and OpenRouter AI integration",
+    "target_folder": ".",
+    "constraints": [
+      "AI suggestions must never overwrite lecturer-approved final scores",
+      "Student-visible grades require lecturer publication in MVP",
+      "Rubric templates are uploaded as constrained .docx files with standardized tables",
+      "Student submissions require one .docx report and one .drawio diagram",
+      "Store AI suggestions, final lecturer scores, extraction artifacts, and audit events separately",
+      "Keep grading states explicit: uploaded, extracting, extracted, grading, graded, reviewed, published, failed"
+    ]
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "phase": "setup-project",
+      "description": "Scaffold the React/Vite TypeScript application, shared lint/build configuration, environment variable examples, and baseline project documentation.",
+      "status": "completed",
+      "input_files": [
+        "plans/serverless-auto-grading/spec.md"
+      ],
+      "output_files": [
+        "package.json",
+        "package-lock.json",
+        "index.html",
+        "vite.config.ts",
+        "tsconfig.json",
+        "tsconfig.node.json",
+        ".env.example",
+        "src/main.tsx",
+        "src/App.tsx",
+        "src/styles.css",
+        "README.md"
+      ],
+      "ai_generated_code": "Created React/Vite TypeScript scaffold, environment example, baseline README, and initial landing workflow UI.",
+      "debug_logs": [
+        "npm.cmd install completed and generated package-lock.json.",
+        "npm.cmd run build completed successfully.",
+        "npm audit reported 5 vulnerabilities in transitive dependencies; no force fix was applied."
+      ],
+      "success_criteria": [
+        "The project installs dependencies from package.json",
+        "npm run build completes successfully",
+        ".env.example documents Supabase and OpenRouter configuration keys"
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "setup-database",
+      "description": "Create the Supabase schema for roles, subjects, assignments, rubrics, submissions, extracted artifacts, grading results, final approvals, audit events, and storage buckets.",
+      "status": "completed",
+      "input_files": [
+        "plans/serverless-auto-grading/spec.md",
+        "package.json"
+      ],
+      "output_files": [
+        "supabase/config.toml",
+        "supabase/migrations/0001_initial_schema.sql",
+        "supabase/migrations/0002_storage_policies.sql",
+        "src/lib/database.types.ts"
+      ],
+      "ai_generated_code": "Created Supabase config, initial schema migration, storage bucket/policy migration, and TypeScript database shape definitions.",
+      "debug_logs": [
+        "Schema separates ai_criterion_scores from final_grades and grade_publications.",
+        "RLS policies restrict unpublished final grades to lecturers; students can read final grades only after publication.",
+        "npm.cmd run build completed successfully after database types were added.",
+        "Supabase migrations were not applied to a live local database in this step."
+      ],
+      "success_criteria": [
+        "Database tables separate AI suggested scores from lecturer final scores",
+        "Row-level security prevents students from reading unpublished grades",
+        "Storage policies restrict students to their own submission files and lecturers to authorized subjects"
+      ]
+    },
+    {
+      "step_id": 3,
+      "phase": "implement-shared-domain",
+      "description": "Add shared TypeScript domain models, validation schemas, grading state constants, and helper utilities used by both frontend and Edge Functions.",
+      "status": "completed",
+      "input_files": [
+        "src/lib/database.types.ts",
+        "plans/serverless-auto-grading/spec.md"
+      ],
+      "output_files": [
+        "src/lib/domain.ts",
+        "src/lib/validation.ts",
+        "src/lib/supabaseClient.ts",
+        "src/lib/gradingStates.ts",
+        "src/vite-env.d.ts"
+      ],
+      "ai_generated_code": "Created shared grading states, domain models, Zod validation schemas, and a typed Supabase client.",
+      "debug_logs": [
+        "Initial build failed because import.meta.env needed Vite client types.",
+        "Added src/vite-env.d.ts.",
+        "npm.cmd run build completed successfully."
+      ],
+      "success_criteria": [
+        "Validation schemas cover rubric rows, submissions, extraction artifacts, AI criterion scores, and final criterion scores",
+        "Score validation rejects suggested or final scores above each criterion max score",
+        "Frontend and backend code can import consistent grading state values"
+      ]
+    },
+    {
+      "step_id": 4,
+      "phase": "implement-extraction",
+      "description": "Implement Edge Function extraction logic for rubric .docx tables, student .docx sections, and Draw.io XML nodes/connectors.",
+      "status": "completed",
+      "input_files": [
+        "src/lib/domain.ts",
+        "src/lib/validation.ts",
+        "supabase/migrations/0001_initial_schema.sql"
+      ],
+      "output_files": [
+        "supabase/functions/extract-submission/index.ts",
+        "supabase/functions/_shared/docxParser.ts",
+        "supabase/functions/_shared/drawioParser.ts",
+        "supabase/functions/_shared/rubricParser.ts",
+        "supabase/functions/_shared/storage.ts"
+      ],
+      "ai_generated_code": "Created Supabase Edge extraction function plus shared parsers for .docx text/tables, rubric tables, Draw.io XML, and storage/database helpers.",
+      "debug_logs": [
+        "npm.cmd run build completed successfully after extraction files were added.",
+        "Edge Function Deno type-checking was not run because Supabase CLI/local Edge runtime was not invoked.",
+        "DOCX parsing uses OOXML document.xml extraction via fflate in the Edge runtime."
+      ],
+      "success_criteria": [
+        "Rubric .docx parsing returns normalized criteria with identifiers, descriptions, max scores, grading guidance, and deduction notes",
+        "Student .docx parsing stores section text and extraction warnings",
+        "Draw.io parsing stores entities, labels, connectors, and relationships",
+        "Extraction failure updates the submission state to failed with a visible reason"
+      ]
+    },
+    {
+      "step_id": 5,
+      "phase": "implement-ai-grading",
+      "description": "Implement the OpenRouter grading Edge Function that combines rubric criteria, extracted document text, diagram structure, and warnings into structured AI scoring results.",
+      "status": "completed",
+      "input_files": [
+        "src/lib/domain.ts",
+        "src/lib/validation.ts",
+        "supabase/functions/_shared/storage.ts",
+        "supabase/functions/extract-submission/index.ts"
+      ],
+      "output_files": [
+        "supabase/functions/grade-submission/index.ts",
+        "supabase/functions/_shared/openrouter.ts",
+        "supabase/functions/_shared/gradingPrompt.ts",
+        "supabase/functions/_shared/aiResponseParser.ts"
+      ],
+      "ai_generated_code": "Created OpenRouter grading Edge Function with structured prompt construction, AI JSON response parsing, score-bound validation, grading run persistence, and failure state handling.",
+      "debug_logs": [
+        "npm.cmd run build completed successfully after AI grading files were added.",
+        "AI parser rejects unknown criterion IDs, missing criteria, and suggested scores above rubric max scores.",
+        "Edge Function Deno type-checking and live OpenRouter calls were not run in this step."
+      ],
+      "success_criteria": [
+        "AI responses are parsed into criterion-level records containing max_score, suggested_score, deductions, evidence, comment, and confidence/status",
+        "Suggested scores are clamped or rejected if they exceed rubric max scores",
+        "Raw AI request/response metadata is stored for audit without exposing secrets",
+        "AI grading failure updates the submission state to failed with a visible reason"
+      ]
+    },
+    {
+      "step_id": 6,
+      "phase": "implement-api",
+      "description": "Add frontend service modules for authentication, subject/rubric management, student submissions, grading job triggers, review saving, publication, and retries.",
+      "status": "completed",
+      "input_files": [
+        "src/lib/supabaseClient.ts",
+        "src/lib/domain.ts",
+        "src/lib/validation.ts",
+        "supabase/functions/extract-submission/index.ts",
+        "supabase/functions/grade-submission/index.ts"
+      ],
+      "output_files": [
+        "src/services/authService.ts",
+        "src/services/subjectService.ts",
+        "src/services/rubricService.ts",
+        "src/services/submissionService.ts",
+        "src/services/gradingService.ts",
+        "src/services/reviewService.ts"
+      ],
+      "ai_generated_code": "Created frontend service modules for auth/profile, subjects/assignments, rubric upload, student submissions, extraction/grading triggers, review saving, publishing, and retries.",
+      "debug_logs": [
+        "Initial build failed because manual Supabase types lacked Relationships metadata.",
+        "Added Relationships fields to database.types.ts.",
+        "Nested rubric_criteria select required a service-boundary cast in reviewService.",
+        "npm.cmd run build completed successfully."
+      ],
+      "success_criteria": [
+        "Students can create a submission record and upload one .docx plus one .drawio file",
+        "Lecturers can upload a rubric .docx for a selected subject",
+        "Lecturers can save final criterion scores without mutating AI suggested scores",
+        "Lecturers can publish results only after final scores are present"
+      ]
+    },
+    {
+      "step_id": 7,
+      "phase": "implement-ui",
+      "description": "Build the application UI for role-aware navigation, lecturer subject/rubric setup, student upload flow, grading status, split-view lecturer review, and published student results.",
+      "status": "completed",
+      "input_files": [
+        "src/App.tsx",
+        "src/styles.css",
+        "src/services/authService.ts",
+        "src/services/subjectService.ts",
+        "src/services/rubricService.ts",
+        "src/services/submissionService.ts",
+        "src/services/gradingService.ts",
+        "src/services/reviewService.ts"
+      ],
+      "output_files": [
+        "src/components/AppShell.tsx",
+        "src/components/FileDropzone.tsx",
+        "src/components/StatusBadge.tsx",
+        "src/pages/LoginPage.tsx",
+        "src/pages/LecturerDashboard.tsx",
+        "src/pages/RubricUploadPage.tsx",
+        "src/pages/StudentSubmissionPage.tsx",
+        "src/pages/SubmissionReviewPage.tsx",
+        "src/pages/StudentResultPage.tsx",
+        "src/App.tsx",
+        "src/styles.css"
+      ],
+      "ai_generated_code": "Built dashboard-oriented UI shell, file dropzones, status badge, lecturer dashboard, rubric upload, student submission, split review, and student result pages.",
+      "debug_logs": [
+        "npm.cmd run build completed successfully after UI files were added.",
+        "UI currently uses local view switching and scaffold data; live Supabase wiring is planned in the integrate step."
+      ],
+      "success_criteria": [
+        "Lecturer review page shows extracted evidence and editable criterion scores/comments in a split view",
+        "Student upload page accepts only .docx and .drawio files for the required slots",
+        "Students cannot see unpublished grades in the UI",
+        "All grading states render clear status and failure messages"
+      ]
+    },
+    {
+      "step_id": 8,
+      "phase": "add-tests",
+      "description": "Add focused automated tests for parsers, validation, scoring invariants, service behavior, and key UI workflows.",
+      "status": "completed",
+      "input_files": [
+        "src/lib/validation.ts",
+        "supabase/functions/_shared/docxParser.ts",
+        "supabase/functions/_shared/drawioParser.ts",
+        "supabase/functions/_shared/rubricParser.ts",
+        "supabase/functions/_shared/aiResponseParser.ts",
+        "src/services/reviewService.ts",
+        "src/pages/SubmissionReviewPage.tsx"
+      ],
+      "output_files": [
+        "vitest.config.ts",
+        "src/test/setup.ts",
+        "src/lib/validation.test.ts",
+        "supabase/functions/_shared/drawioParser.test.ts",
+        "supabase/functions/_shared/rubricParser.test.ts",
+        "supabase/functions/_shared/aiResponseParser.test.ts",
+        "src/services/reviewService.test.ts",
+        "src/pages/SubmissionReviewPage.test.tsx"
+      ],
+      "ai_generated_code": "Added Vitest/jsdom setup plus parser, validation, review-service, and review-page tests.",
+      "debug_logs": [
+        "Installed test dependencies: fflate, Testing Library, jest-dom, user-event, and jsdom.",
+        "Initial rubric parser tests found ambiguous Vietnamese header aliases.",
+        "Fixed rubric header matching by preferring exact aliases and separating title/description aliases.",
+        "npm.cmd test completed successfully: 6 test files, 10 tests.",
+        "npm.cmd run build completed successfully after tests were added."
+      ],
+      "success_criteria": [
+        "Parser tests cover valid input, missing required sections, and malformed files",
+        "Validation tests prove scores cannot exceed criterion max scores",
+        "Review service tests prove final scores are stored separately from AI suggestions",
+        "npm test completes successfully"
+      ]
+    },
+    {
+      "step_id": 9,
+      "phase": "integrate",
+      "description": "Wire the end-to-end workflow from uploads through extraction, AI grading, lecturer review, final publication, retries, and visible audit/status updates.",
+      "status": "completed",
+      "input_files": [
+        "src/pages/StudentSubmissionPage.tsx",
+        "src/pages/RubricUploadPage.tsx",
+        "src/pages/SubmissionReviewPage.tsx",
+        "src/pages/StudentResultPage.tsx",
+        "supabase/functions/extract-submission/index.ts",
+        "supabase/functions/grade-submission/index.ts",
+        "supabase/migrations/0001_initial_schema.sql"
+      ],
+      "output_files": [
+        "src/workflows/submissionWorkflow.ts",
+        "src/workflows/reviewWorkflow.ts",
+        "src/App.tsx",
+        "README.md"
+      ],
+      "ai_generated_code": "Added submission and review workflow orchestration modules and updated README with implemented status and local checks.",
+      "debug_logs": [
+        "npm.cmd test completed successfully: 6 test files, 10 tests.",
+        "npm.cmd run build completed successfully.",
+        "Live Supabase end-to-end execution was not run because no local/remote Supabase project is configured in this workspace."
+      ],
+      "success_criteria": [
+        "A lecturer can upload a rubric, a student can submit files, and a grading result can be reviewed and published in the local/dev environment",
+        "Retry controls can re-run extraction or AI grading before publication",
+        "Audit events are written for upload, extraction, AI grading, lecturer edit, and publication actions"
+      ]
+    },
+    {
+      "step_id": 10,
+      "phase": "document",
+      "description": "Document setup, environment variables, Supabase deployment, rubric .docx table format, submission template expectations, and known MVP limitations.",
+      "status": "completed",
+      "input_files": [
+        "README.md",
+        "plans/serverless-auto-grading/spec.md",
+        ".env.example"
+      ],
+      "output_files": [
+        "README.md",
+        "docs/rubric-docx-format.md",
+        "docs/submission-template-guidelines.md",
+        "docs/deployment.md"
+      ],
+      "ai_generated_code": "Added deployment, rubric DOCX format, and submission template documentation; expanded README with Supabase functions and local checks.",
+      "debug_logs": [
+        "npm.cmd test completed successfully: 6 test files, 10 tests.",
+        "npm.cmd run build completed successfully.",
+        "Production deployment and live Supabase/OpenRouter verification remain environment-dependent."
+      ],
+      "success_criteria": [
+        "README includes local setup, build, test, and Supabase configuration instructions",
+        "Rubric documentation defines the required .docx table columns",
+        "Deployment documentation lists required Supabase secrets and OpenRouter configuration",
+        "MVP limitations and unresolved policy decisions are documented"
+      ]
+    }
+  ]
+}
