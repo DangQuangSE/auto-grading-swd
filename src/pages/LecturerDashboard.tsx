@@ -1,13 +1,15 @@
 import { AlertTriangle, CheckCircle2, Clock3 } from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
-
-const rows = [
-  { student: "SE170001", subject: "SWD", state: "graded" as const, score: "8.0 / 10" },
-  { student: "SE170014", subject: "SWR", state: "extracting" as const, score: "-" },
-  { student: "SE170088", subject: "SWD", state: "failed" as const, score: "-" },
-];
+import { StateBlock } from "../components/ui/StateBlock";
+import { useRecentSubmissions } from "../hooks/useSubmissions";
 
 export function LecturerDashboard() {
+  const submissions = useRecentSubmissions();
+  const rows = submissions.data ?? [];
+  const readyCount = rows.filter((row) => row.state === "graded" || row.state === "reviewed").length;
+  const processingCount = rows.filter((row) => row.state === "extracting" || row.state === "grading").length;
+  const failedCount = rows.filter((row) => row.state === "failed").length;
+
   return (
     <section className="page-grid">
       <header className="page-header">
@@ -18,42 +20,49 @@ export function LecturerDashboard() {
         <article className="metric-panel">
           <CheckCircle2 aria-hidden="true" />
           <span>Ready to review</span>
-          <strong>12</strong>
+          <strong>{readyCount}</strong>
         </article>
         <article className="metric-panel">
           <Clock3 aria-hidden="true" />
           <span>Processing</span>
-          <strong>4</strong>
+          <strong>{processingCount}</strong>
         </article>
         <article className="metric-panel">
           <AlertTriangle aria-hidden="true" />
           <span>Needs action</span>
-          <strong>2</strong>
+          <strong>{failedCount}</strong>
         </article>
       </div>
       <div className="table-panel">
-        <table>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Subject</th>
-              <th>Status</th>
-              <th>AI score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.student}>
-                <td>{row.student}</td>
-                <td>{row.subject}</td>
-                <td>
-                  <StatusBadge state={row.state} />
-                </td>
-                <td>{row.score}</td>
+        {submissions.isLoading ? <StateBlock title="Loading submissions" /> : null}
+        {submissions.error ? <StateBlock title="Unable to load submissions" detail={submissions.error.message} /> : null}
+        {!submissions.isLoading && rows.length === 0 ? (
+          <StateBlock title="No submissions yet" detail="Student uploads will appear here after the first submission." />
+        ) : null}
+        {rows.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Assignment</th>
+                <th>Status</th>
+                <th>Submitted</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.student_id.slice(0, 8)}</td>
+                  <td>{row.assignment_id.slice(0, 8)}</td>
+                  <td>
+                    <StatusBadge state={row.state} />
+                  </td>
+                  <td>{new Date(row.submitted_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </div>
     </section>
   );

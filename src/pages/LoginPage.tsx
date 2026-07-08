@@ -1,9 +1,15 @@
 import { Chrome, LockKeyhole } from "lucide-react";
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
+import { Field, SelectInput, TextInput } from "../components/ui/Field";
+import { FormMessage } from "../components/ui/FormMessage";
 import type { AppRole } from "../lib/database.types";
+import { useAuth } from "../providers/AuthProvider";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "../services/authService";
 
-export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | null; onSignedIn: () => void }) {
+export function LoginPage() {
+  const { authNotice, refreshSession, session } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +18,10 @@ export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | nu
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (session) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,7 +32,7 @@ export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | nu
     try {
       if (mode === "login") {
         await signInWithEmail(email, password);
-        onSignedIn();
+        await refreshSession();
       } else {
         await signUpWithEmail({ email, password, fullName, role });
         setMessage("Account created. If email confirmation is enabled, verify your email before signing in.");
@@ -56,41 +66,37 @@ export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | nu
         <span className="page-note">Only .edu email addresses can access this grading workspace.</span>
       </header>
       <form className="form-panel" onSubmit={handleSubmit}>
-        <button className="secondary-button" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
+        <Button variant="secondary" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
           <Chrome aria-hidden="true" />
           Continue with Google
-        </button>
+        </Button>
         <div className="form-divider">
           <span>Email</span>
         </div>
         {mode === "signup" ? (
           <>
-            <label>
-              Full name
-              <input value={fullName} onChange={(event) => setFullName(event.target.value)} required />
-            </label>
-            <label>
-              Role
-              <select value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
+            <Field label="Full name">
+              <TextInput value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+            </Field>
+            <Field label="Role">
+              <SelectInput value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
                 <option value="student">Student</option>
                 <option value="lecturer">Lecturer</option>
-              </select>
-            </label>
+              </SelectInput>
+            </Field>
           </>
         ) : null}
-        <label>
-          Email
-          <input
+        <Field label="Email">
+          <TextInput
             type="email"
             placeholder="lecturer@school.edu"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
           />
-        </label>
-        <label>
-          Password
-          <input
+        </Field>
+        <Field label="Password">
+          <TextInput
             type="password"
             placeholder="********"
             value={password}
@@ -98,16 +104,16 @@ export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | nu
             minLength={6}
             required
           />
-        </label>
-        {authNotice ? <p className="form-error">{authNotice}</p> : null}
-        {error ? <p className="form-error">{error}</p> : null}
-        {message ? <p className="form-message">{message}</p> : null}
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
+        </Field>
+        {authNotice ? <FormMessage tone="error">{authNotice}</FormMessage> : null}
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        {message ? <FormMessage tone="success">{message}</FormMessage> : null}
+        <Button type="submit" disabled={isSubmitting}>
           <LockKeyhole aria-hidden="true" />
           {isSubmitting ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
-        </button>
-        <button
-          className="text-button"
+        </Button>
+        <Button
+          variant="text"
           type="button"
           onClick={() => {
             setMode(mode === "login" ? "signup" : "login");
@@ -116,7 +122,7 @@ export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | nu
           }}
         >
           {mode === "login" ? "Create a new account" : "Use an existing account"}
-        </button>
+        </Button>
       </form>
     </section>
   );

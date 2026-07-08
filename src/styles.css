@@ -31,6 +31,12 @@ button {
   cursor: pointer;
 }
 
+a {
+  color: #0f6b63;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -185,7 +191,8 @@ h3 {
 .table-panel,
 .evidence-panel,
 .grading-panel,
-.result-panel {
+.result-panel,
+.panel {
   border: 1px solid #d9e1e3;
   border-radius: 8px;
   background: #ffffff;
@@ -388,6 +395,31 @@ select {
 .form-message {
   color: #12613d;
   background: #dff3e8;
+}
+
+.state-block {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  color: #43535c;
+}
+
+.state-block strong {
+  color: #18242c;
+}
+
+.json-preview {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e5eaec;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #263640;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .split-review {
