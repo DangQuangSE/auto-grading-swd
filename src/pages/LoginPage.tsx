@@ -1,24 +1,121 @@
-import { LockKeyhole } from "lucide-react";
+import { Chrome, LockKeyhole } from "lucide-react";
+import { useState } from "react";
+import type { AppRole } from "../lib/database.types";
+import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "../services/authService";
 
-export function LoginPage() {
+export function LoginPage({ authNotice, onSignedIn }: { authNotice?: string | null; onSignedIn: () => void }) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<AppRole>("student");
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      if (mode === "login") {
+        await signInWithEmail(email, password);
+        onSignedIn();
+      } else {
+        await signUpWithEmail({ email, password, fullName, role });
+        setMessage("Account created. If email confirmation is enabled, verify your email before signing in.");
+        setMode("login");
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Authentication failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await signInWithGoogle();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Google sign in failed.");
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <section className="page-grid compact-page">
       <header className="page-header">
         <p>Access</p>
-        <h1>Sign in</h1>
+        <h1>{mode === "login" ? "Sign in" : "Create account"}</h1>
+        <span className="page-note">Only .edu email addresses can access this grading workspace.</span>
       </header>
-      <form className="form-panel">
+      <form className="form-panel" onSubmit={handleSubmit}>
+        <button className="secondary-button" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
+          <Chrome aria-hidden="true" />
+          Continue with Google
+        </button>
+        <div className="form-divider">
+          <span>Email</span>
+        </div>
+        {mode === "signup" ? (
+          <>
+            <label>
+              Full name
+              <input value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+            </label>
+            <label>
+              Role
+              <select value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
+                <option value="student">Student</option>
+                <option value="lecturer">Lecturer</option>
+              </select>
+            </label>
+          </>
+        ) : null}
         <label>
           Email
-          <input type="email" placeholder="lecturer@school.edu" />
+          <input
+            type="email"
+            placeholder="lecturer@school.edu"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
         </label>
         <label>
           Password
-          <input type="password" placeholder="••••••••" />
+          <input
+            type="password"
+            placeholder="********"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={6}
+            required
+          />
         </label>
-        <button className="primary-button" type="button">
+        {authNotice ? <p className="form-error">{authNotice}</p> : null}
+        {error ? <p className="form-error">{error}</p> : null}
+        {message ? <p className="form-message">{message}</p> : null}
+        <button className="primary-button" type="submit" disabled={isSubmitting}>
           <LockKeyhole aria-hidden="true" />
-          Sign in
+          {isSubmitting ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
+        </button>
+        <button
+          className="text-button"
+          type="button"
+          onClick={() => {
+            setMode(mode === "login" ? "signup" : "login");
+            setError(null);
+            setMessage(null);
+          }}
+        >
+          {mode === "login" ? "Create a new account" : "Use an existing account"}
         </button>
       </form>
     </section>

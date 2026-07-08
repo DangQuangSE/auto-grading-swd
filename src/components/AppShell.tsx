@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, FileUp, GraduationCap, UserRound } from "lucide-react";
+import { BookOpen, ClipboardCheck, FileUp, GraduationCap, LogOut, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type AppView = "lecturer" | "rubric" | "student" | "review" | "result";
@@ -14,10 +14,14 @@ const navItems: Array<{ id: AppView; label: string; icon: typeof BookOpen }> = [
 export function AppShell({
   activeView,
   onViewChange,
+  userEmail,
+  onSignOut,
   children,
 }: {
   activeView: AppView;
   onViewChange: (view: AppView) => void;
+  userEmail?: string;
+  onSignOut: () => void;
   children: ReactNode;
 }) {
   return (
@@ -44,6 +48,13 @@ export function AppShell({
             );
           })}
         </nav>
+        <div className="sidebar-account">
+          <span>{userEmail ?? "Signed in"}</span>
+          <button className="nav-button" type="button" onClick={onSignOut} title="Sign out">
+            <LogOut aria-hidden="true" />
+            <span>Sign out</span>
+          </button>
+        </div>
       </aside>
       <section className="workspace">{children}</section>
     </div>
