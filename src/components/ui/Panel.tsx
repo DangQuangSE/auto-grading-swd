@@ -1,0 +1,15 @@
+import type { HTMLAttributes, ReactNode } from "react";
+
+export function Panel({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLElement> & {
+  children: ReactNode;
+}) {
+  return (
+    <section className={["panel", className].filter(Boolean).join(" ")} {...props}>
+      {children}
+    </section>
+  );
+}

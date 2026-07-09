@@ -1,6 +1,13 @@
 import { assertValidFileExtension } from "../lib/validation";
 import { supabase } from "../lib/supabaseClient";
 
+export type RubricListItem = {
+  id: string;
+  original_filename: string;
+  status: string;
+  version: number;
+};
+
 function rubricPath(subjectId: string, assignmentId: string | null | undefined, file: File) {
   const scope = assignmentId ?? "subject";
   return `${subjectId}/${scope}/${crypto.randomUUID()}-${file.name}`;
@@ -48,10 +55,10 @@ export async function uploadRubricDocx(params: {
 export async function listRubrics(subjectId: string) {
   const { data, error } = await supabase
     .from("rubrics")
-    .select("*, rubric_criteria(*)")
+    .select("id,original_filename,status,version")
     .eq("subject_id", subjectId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data;
+  return data as RubricListItem[];
 }

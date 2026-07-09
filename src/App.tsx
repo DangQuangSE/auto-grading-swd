@@ -1,26 +1,26 @@
-import { useState } from "react";
-import { AppShell, type AppView } from "./components/AppShell";
-import { LecturerDashboard } from "./pages/LecturerDashboard";
-import { RubricUploadPage } from "./pages/RubricUploadPage";
-import { StudentResultPage } from "./pages/StudentResultPage";
-import { StudentSubmissionPage } from "./pages/StudentSubmissionPage";
-import { SubmissionReviewPage } from "./pages/SubmissionReviewPage";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./providers/AuthProvider";
+import { AppRoutes } from "./routes/AppRoutes";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 function App() {
-  const [activeView, setActiveView] = useState<AppView>("lecturer");
-
-  const page = {
-    lecturer: <LecturerDashboard />,
-    rubric: <RubricUploadPage />,
-    student: <StudentSubmissionPage />,
-    review: <SubmissionReviewPage />,
-    result: <StudentResultPage />,
-  }[activeView];
-
   return (
-    <AppShell activeView={activeView} onViewChange={setActiveView}>
-      {page}
-    </AppShell>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

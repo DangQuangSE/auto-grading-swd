@@ -1,14 +1,48 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { SubmissionReviewPage } from "./SubmissionReviewPage";
 
-describe("SubmissionReviewPage", () => {
-  it("renders extracted evidence and editable final score inputs", () => {
-    render(<SubmissionReviewPage />);
+vi.mock("../hooks/useSubmissions", () => ({
+  useRecentSubmissions: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  useSubmissionReview: () => ({
+    data: undefined,
+    isLoading: false,
+  }),
+  useSaveFinalScore: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  usePublishGrade: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+}));
 
-    expect(screen.getByText(/extracted evidence/i)).toBeInTheDocument();
-    expect(screen.getByText(/criterion scores/i)).toBeInTheDocument();
-    expect(screen.getByText(/architecture consistency/i)).toBeInTheDocument();
-    expect(screen.getAllByLabelText(/final/i)).toHaveLength(2);
+vi.mock("../providers/AuthProvider", () => ({
+  useAuth: () => ({
+    session: { user: { id: "lecturer-id" } },
+  }),
+}));
+
+describe("SubmissionReviewPage", () => {
+  it("renders the review selection empty state", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <SubmissionReviewPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/select a submission/i)).toBeInTheDocument();
   });
 });

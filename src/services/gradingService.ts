@@ -1,5 +1,16 @@
 import { supabase } from "../lib/supabaseClient";
 
+export async function listRecentSubmissions() {
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("*")
+    .order("submitted_at", { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+  return data;
+}
+
 export async function triggerExtraction(submissionId: string, actorId?: string) {
   const { data, error } = await supabase.functions.invoke("extract-submission", {
     body: { submissionId, actorId },
