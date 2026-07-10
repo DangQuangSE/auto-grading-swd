@@ -1,41 +1,62 @@
 # Auto Grading
 
-Serverless web platform for grading IT project reports and architecture diagrams.
+Platform for grading IT project reports and architecture diagrams. Split into an independent
+**frontend / backend** architecture:
 
-The MVP is designed around:
+- `fe/` — React + Vite + TypeScript frontends.
+  - `fe/user-web` — student/lecturer app. See `fe/user-web/README.md`.
+  - `fe/admin-web` — admin app. See `fe/admin-web/README.md`.
+- `be/` — ASP.NET Core microservices backend (Identity, Catalog, Submission, Grading,
+  Notification) behind a YARP API Gateway, replacing the previous Supabase backend
+  (Auth/Postgres/Storage/Edge Functions) with SQL Server, RabbitMQ, MinIO, and Hangfire.
+  See `be/README.md`.
+- `docker-compose.yml` (root) — runs the full stack: gateway, all 5 services, SQL Server,
+  RabbitMQ, MinIO, and both frontends.
 
-- React + Vite + TypeScript for the web app.
-- Supabase Auth, Postgres, Storage, and Edge Functions.
-- Word `.docx` rubric templates with standardized grading tables.
-- Student `.docx` reports and `.drawio` architecture diagrams.
-- OpenRouter-backed AI grading suggestions.
-- Lecturer-approved final grades stored separately from AI suggestions.
+The target architecture, functional requirements, event/job tables, and requirements
+checklist are documented in `requirment.md`. The refactor from the original single-source
+Supabase app is tracked in `plans/split-fe-be-microservices/` (`spec.md`, `plan.json`).
 
-## Local Setup
+## Running the full stack
 
 ```bash
+cp .env.example .env   # fill in SA_PASSWORD, RABBITMQ_*, JWT_SIGNING_KEY, MINIO_*, OPENROUTER_API_KEY
+docker compose up --build
+```
+
+- Gateway: http://localhost:5500
+- User web: http://localhost:5173
+- Admin web: http://localhost:5174
+- RabbitMQ management: http://localhost:15672
+- MinIO console: http://localhost:9001
+- Per-service Hangfire dashboards: `http://localhost:5003/hangfire` (Submission),
+  `http://localhost:5004/hangfire` (Grading)
+
+`.env` holds live secrets for local Docker use only — it is gitignored and must never be
+committed; copy `.env.example` and fill in your own values.
+
+## Running the frontend standalone
+
+```bash
+cd fe/user-web
 npm install
 npm run dev
 ```
 
-## Environment
+Copy `fe/user-web/.env.example` to `fe/user-web/.env.local` (or `fe/admin-web/.env.example`
+for the admin app) and point `VITE_API_BASE_URL` at a running gateway (see above).
 
-Copy `.env.example` to `.env.local` and fill in the relevant values.
+## Running the backend standalone
 
-- `VITE_SUPABASE_URL`: Supabase project URL used by the web app.
-- `VITE_SUPABASE_ANON_KEY`: Supabase anonymous public key used by the web app.
-- `SUPABASE_SERVICE_ROLE_KEY`: service key used only by trusted serverless functions.
-- `OPENROUTER_API_KEY`: API key used by grading functions.
-- `OPENROUTER_MODEL`: model identifier for criterion-level grading.
+See `be/README.md` for building the ASP.NET Core solution directly with `dotnet build`.
 
-## Supabase
+## Legacy Supabase backend (replaced)
 
-Migrations live in `supabase/migrations`.
-
-Edge Functions:
-
-- `extract-submission`: parses rubric Word files, student Word reports, and Draw.io XML diagrams.
-- `grade-submission`: sends extracted artifacts and rubric criteria to OpenRouter, then stores AI criterion scores.
+`supabase/` still holds the previous backend implementation (Postgres migrations in
+`supabase/migrations`, and Edge Functions `extract-submission` / `grade-submission`) kept as
+a reference for how extraction/grading logic was ported into the new `be/` microservices
+(`Submission`'s `ExtractionJob` and `Grading`'s `AiGradingJob`, respectively). It is not used
+by the running system.
 
 ## Rubric and Submission Docs
 
@@ -43,23 +64,11 @@ Edge Functions:
 - `docs/submission-template-guidelines.md`
 - `docs/deployment.md`
 
-## Current Status
+## Status
 
-Implemented so far:
-
-- React/Vite TypeScript scaffold.
-- Supabase schema and storage policy migrations.
-- Shared domain and validation models.
-- Edge Function scaffolds for extraction and AI grading.
-- Frontend service layer and workflow orchestration.
-- Dashboard, upload, review, and result UI screens.
-- Focused Vitest coverage for validation, parsers, review service behavior, and review UI.
-
-Run local checks:
-
-```bash
-npm test
-npm run build
-```
-
-Remaining product hardening is tracked in `plans/serverless-auto-grading/plan.json`.
+Fully split and verified end-to-end: `fe/user-web` ported off the Supabase SDK onto the
+gateway REST API, `fe/admin-web` scaffolded, and `be/` implements all 5 microservices + YARP
+gateway. The full Docker Compose stack (11 containers) has been verified healthy with a live
+smoke test covering JWT login through the gateway, cross-service RabbitMQ event flow, the
+submission → extraction → AI-grading Hangfire pipeline, and both Hangfire dashboards. See
+`plans/split-fe-be-microservices/plan.json` for the phase-by-phase build/verification log.

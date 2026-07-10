@@ -1,0 +1,14 @@
+namespace AutoGrading.Catalog.Api.Domain;
+
+public class Assignment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid SubjectId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTimeOffset? DueDate { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public Subject? Subject { get; set; }
+    public List<Rubric> Rubrics { get; set; } = new();
+}

@@ -1,0 +1,313 @@
+{
+  "plan_id": "split-fe-be-microservices",
+  "goal": "Tách repo thành fe/ và be/, scaffold ASP.NET Core microservices (5 service + YARP gateway) thay Supabase, chạy end-to-end mức skeleton qua Docker Compose (SQL Server + RabbitMQ + MinIO + Hangfire + JWT).",
+  "current_step": 12,
+  "global_context": {
+    "framework": "ASP.NET Core 8 (be) + React/Vite/TS (fe)",
+    "architecture": "Microservices, API Gateway (YARP), database-per-service (SQL Server + EF Core), RabbitMQ event bus, Hangfire background jobs, MinIO object storage",
+    "target_folder": "be/ và fe/",
+    "constraints": [
+      "Skeleton trước, logic đầy đủ sau — mỗi service có health endpoint + wiring, business logic có thể stub",
+      "Parser docx/.drawio: port sang C# native (DocumentFormat.OpenXml + XML), đợt này stub",
+      "fe/admin-web: scaffold mới tối giản (student+lecturer app cũ trở thành fe/user-web)",
+      "Database-per-service trên 1 SQL Server instance trong compose",
+      "DB bắt đầu trống, không migrate dữ liệu Supabase cũ",
+      "Không xoá supabase/ ngay — giữ tham chiếu để port logic, dọn ở cuối",
+      "Gateway là điểm vào duy nhất; JWT do Identity ký, các service validate theo role student/lecturer/admin",
+      "5+ events: SubmissionUploaded, ArtifactsExtracted, AiGradingCompleted, GradePublished, RubricParsed, UserRegistered",
+      "2+ Hangfire jobs: extraction, ai-grading (+ optional overdue-reminder)"
+    ]
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "phase": "setup-project",
+      "description": "Tái cấu trúc repo: tạo thư mục fe/ và be/. Di chuyển toàn bộ FE hiện tại (src/, index.html, package.json, vite/tsconfig configs, supabase-independent code) vào fe/user-web/ giữ nguyên khả năng build. Cập nhật .gitignore và README root mô tả layout mới.",
+      "status": "pending",
+      "input_files": ["package.json", "index.html", "src/**", "vite.config.ts", "tsconfig.json", ".gitignore", "README.md"],
+      "output_files": ["fe/user-web/package.json", "fe/user-web/index.html", "fe/user-web/src/**", "fe/user-web/vite.config.ts", "README.md", ".gitignore"],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "cd fe/user-web && npm install && npm run build passes",
+        "Không còn source FE nào nằm ở root (chỉ fe/ và be/)",
+        "README root mô tả cấu trúc fe/ + be/"
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "setup-project",
+      "description": "Tạo .NET solution be/AutoGrading.sln với cấu trúc thư mục: src/BuildingBlocks (Contracts, Common), src/Services/{Identity,Catalog,Submission,Grading,Notification}, src/Gateway. Chỉ tạo solution rỗng + folder + Directory.Build.props chung (TargetFramework net8.0, nullable enable).",
+      "status": "pending",
+      "input_files": [],
+      "output_files": ["be/AutoGrading.sln", "be/Directory.Build.props", "be/global.json", "be/README.md"],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "cd be && dotnet build passes (solution rỗng build OK)",
+        "Cấu trúc thư mục src/BuildingBlocks, src/Services, src/Gateway tồn tại"
+      ]
+    },
+    {
+      "step_id": 3,
+      "phase": "implement-shared",
+      "description": "Tạo project AutoGrading.Contracts (integration events: SubmissionUploaded, ArtifactsExtracted, AiGradingCompleted, GradePublished, RubricParsed, UserRegistered + shared DTO/enum: AppRole, GradingState) và AutoGrading.Common (JWT helper, RabbitMQ IEventBus abstraction + implementation, MinIO client wrapper, EF Core base, health-check extensions). Add references vào solution.",
+      "status": "pending",
+      "input_files": ["be/AutoGrading.sln", "src/lib/domain.ts", "src/lib/database.types.ts"],
+      "output_files": [
+        "be/src/BuildingBlocks/AutoGrading.Contracts/AutoGrading.Contracts.csproj",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/*.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Enums/AppRole.cs",
+        "be/src/BuildingBlocks/AutoGrading.Common/AutoGrading.Common.csproj",
+        "be/src/BuildingBlocks/AutoGrading.Common/Messaging/IEventBus.cs",
+        "be/src/BuildingBlocks/AutoGrading.Common/Messaging/RabbitMqEventBus.cs",
+        "be/src/BuildingBlocks/AutoGrading.Common/Storage/MinioStorage.cs",
+        "be/src/BuildingBlocks/AutoGrading.Common/Auth/JwtExtensions.cs"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build của 2 project BuildingBlocks passes",
+        "IEventBus có Publish + Subscribe; 6 event record được định nghĩa trong Contracts",
+        "AppRole enum có student/lecturer/admin khớp domain cũ"
+      ]
+    },
+    {
+      "step_id": 4,
+      "phase": "implement-identity",
+      "description": "Identity Service: ASP.NET Core Web API, EF Core (DbContext Users/Roles trên SQL Server db AutoGrading.Identity), endpoint POST /auth/register + POST /auth/login phát hành JWT (claim role), password hashing, publish UserRegistered event, health endpoint. Migration InitialCreate.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Common/Auth/JwtExtensions.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/UserRegistered.cs"
+      ],
+      "output_files": [
+        "be/src/Services/Identity/AutoGrading.Identity.Api/AutoGrading.Identity.Api.csproj",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/User.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Data/IdentityDbContext.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/AuthEndpoints.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/*.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Dockerfile",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/appsettings.json"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes; migration tạo bảng Users",
+        "POST /auth/login trả JWT hợp lệ có claim role",
+        "GET /health trả 200"
+      ]
+    },
+    {
+      "step_id": 5,
+      "phase": "implement-catalog",
+      "description": "Catalog Service: Web API + EF Core (db AutoGrading.Catalog) cho subjects, assignments, rubrics, rubric_criteria. Endpoint CRUD tối thiểu có [Authorize] theo role lecturer/admin, upload rubric (stub parse → publish RubricParsed), health endpoint, Dockerfile, migration.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Common/AutoGrading.Common.csproj",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/RubricParsed.cs"
+      ],
+      "output_files": [
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/AutoGrading.Catalog.Api.csproj",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/*.cs",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/*.cs",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/*.cs",
+        "be/src/Services/Catalog/AutoGrading.Catalog.Api/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes; migration tạo bảng subjects/assignments/rubrics/rubric_criteria",
+        "Endpoint bảo vệ trả 401 khi thiếu JWT, 200 khi có JWT role hợp lệ",
+        "Upload rubric publish RubricParsed event"
+      ]
+    },
+    {
+      "step_id": 6,
+      "phase": "implement-submission",
+      "description": "Submission Service: Web API + EF Core (db AutoGrading.Submission) cho submissions + extracted_artifacts (state machine uploaded→extracting→extracted...). Upload file .docx/.drawio lên MinIO, publish SubmissionUploaded. Parser docx/.drawio port sang C# ở dạng STUB (interface + no-op trả extracted_artifacts rỗng). Hangfire extraction job đăng ký (consume SubmissionUploaded → set extracted → publish ArtifactsExtracted). Health, Dockerfile, migration.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Common/Storage/MinioStorage.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/SubmissionUploaded.cs",
+        "supabase/functions/extract-submission/index.ts"
+      ],
+      "output_files": [
+        "be/src/Services/Submission/AutoGrading.Submission.Api/AutoGrading.Submission.Api.csproj",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/*.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Data/SubmissionDbContext.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/*.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/IArtifactParser.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+        "be/src/Services/Submission/AutoGrading.Submission.Api/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes; migration tạo bảng submissions/extracted_artifacts",
+        "Upload file lưu được lên MinIO và publish SubmissionUploaded",
+        "Hangfire extraction job đăng ký được và chuyển state"
+      ]
+    },
+    {
+      "step_id": 7,
+      "phase": "implement-grading",
+      "description": "Grading Service: Web API + EF Core (db AutoGrading.Grading) cho ai_grading_runs, ai_criterion_scores, final_grades, grade_publications. Tích hợp OpenRouter (env model) ở dạng gọi thật hoặc stub cấu hình được. Hangfire ai-grading job (consume ArtifactsExtracted → gọi OpenRouter stub → lưu scores → publish AiGradingCompleted). Endpoint review/publish (publish GradePublished). Health, Dockerfile, migration.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/ArtifactsExtracted.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/AiGradingCompleted.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/GradePublished.cs",
+        "supabase/functions/grade-submission/index.ts"
+      ],
+      "output_files": [
+        "be/src/Services/Grading/AutoGrading.Grading.Api/AutoGrading.Grading.Api.csproj",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Program.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Domain/*.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Data/GradingDbContext.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Endpoints/*.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/OpenRouter/OpenRouterClient.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/AiGradingJob.cs",
+        "be/src/Services/Grading/AutoGrading.Grading.Api/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes; migration tạo 4 bảng grading",
+        "ai-grading job đăng ký (Hangfire) và publish AiGradingCompleted",
+        "Endpoint publish grade phát GradePublished event"
+      ]
+    },
+    {
+      "step_id": 8,
+      "phase": "implement-notification",
+      "description": "Notification Service: Web API + EF Core (db AutoGrading.Notification) cho notifications + audit_events. Subscribe các event (UserRegistered, AiGradingCompleted, GradePublished...) → ghi audit + tạo notification (email stub/log). Health, Dockerfile, migration.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Common/Messaging/IEventBus.cs",
+        "be/src/BuildingBlocks/AutoGrading.Contracts/Events/AiGradingCompleted.cs"
+      ],
+      "output_files": [
+        "be/src/Services/Notification/AutoGrading.Notification.Api/AutoGrading.Notification.Api.csproj",
+        "be/src/Services/Notification/AutoGrading.Notification.Api/Program.cs",
+        "be/src/Services/Notification/AutoGrading.Notification.Api/Domain/*.cs",
+        "be/src/Services/Notification/AutoGrading.Notification.Api/Data/NotificationDbContext.cs",
+        "be/src/Services/Notification/AutoGrading.Notification.Api/Consumers/*.cs",
+        "be/src/Services/Notification/AutoGrading.Notification.Api/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes; migration tạo bảng notifications/audit_events",
+        "Subscriber nhận được event demo và ghi log/audit"
+      ]
+    },
+    {
+      "step_id": 9,
+      "phase": "implement-api",
+      "description": "API Gateway (YARP): reverse proxy route /identity/*, /catalog/*, /submissions/*, /grading/*, /notifications/* tới 5 service; JWT bearer validation dùng cùng key với Identity; CORS cho 2 FE app; health endpoint. Dockerfile + appsettings routes.",
+      "status": "pending",
+      "input_files": [
+        "be/src/BuildingBlocks/AutoGrading.Common/Auth/JwtExtensions.cs",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs"
+      ],
+      "output_files": [
+        "be/src/Gateway/AutoGrading.Gateway/AutoGrading.Gateway.csproj",
+        "be/src/Gateway/AutoGrading.Gateway/Program.cs",
+        "be/src/Gateway/AutoGrading.Gateway/appsettings.json",
+        "be/src/Gateway/AutoGrading.Gateway/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "dotnet build passes",
+        "Request qua gateway tới /identity/auth/login hoạt động",
+        "Request thiếu/invalid JWT tới route bảo vệ trả 401 tại gateway"
+      ]
+    },
+    {
+      "step_id": 10,
+      "phase": "implement-ui",
+      "description": "FE: (a) Thay tầng gọi Supabase trong fe/user-web bằng API client REST trỏ tới gateway (thay supabaseClient/authService/*Service), giữ UI student+lecturer. (b) Scaffold fe/admin-web mới tối giản (Vite+React+TS) với trang login + shell admin gọi cùng API client. Tạo package/env cho base URL gateway.",
+      "status": "completed",
+      "input_files": [
+        "fe/user-web/src/services/authService.ts",
+        "fe/user-web/src/lib/supabaseClient.ts",
+        "fe/user-web/src/lib/domain.ts"
+      ],
+      "output_files": [
+        "fe/user-web/src/lib/apiClient.ts",
+        "fe/user-web/src/services/*.ts",
+        "fe/user-web/.env.example",
+        "fe/admin-web/package.json",
+        "fe/admin-web/index.html",
+        "fe/admin-web/src/main.tsx",
+        "fe/admin-web/src/lib/apiClient.ts",
+        "fe/admin-web/src/pages/LoginPage.tsx"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [],
+      "success_criteria": [
+        "fe/user-web build pass, không còn import @supabase trong đường dẫn chính",
+        "fe/admin-web build pass và render trang login",
+        "Cả 2 app đọc base URL gateway từ env"
+      ]
+    },
+    {
+      "step_id": 11,
+      "phase": "integrate",
+      "description": "docker-compose.yml ở root orchestrate: sqlserver, rabbitmq, minio, gateway, 5 service, user-web, admin-web. Env cho JWT secret, connection strings (database-per-service), RabbitMQ, MinIO, OpenRouter. Healthcheck + depends_on. Script chạy migration khi khởi động (EnsureCreated/Migrate). .env.example root.",
+      "status": "completed",
+      "input_files": [
+        "be/src/Gateway/AutoGrading.Gateway/Dockerfile",
+        "be/src/Services/Identity/AutoGrading.Identity.Api/Dockerfile",
+        "fe/user-web/package.json",
+        "fe/admin-web/package.json"
+      ],
+      "output_files": [
+        "docker-compose.yml",
+        ".env.example",
+        "fe/user-web/Dockerfile",
+        "fe/admin-web/Dockerfile"
+      ],
+      "ai_generated_code": "",
+      "debug_logs": [
+        "Bug: be/Directory.Build.props had InvariantGlobalization=true, incompatible with Microsoft.Data.SqlClient (CultureNotFoundException on SqlConnection.TryOpen crashed all 5 services, exit 139). Fixed: set to false.",
+        "Bug: gateway healthcheck originally targeted proxied /identity/health (YARP would strip prefix incorrectly). Fixed: point at gateway's own local /health.",
+        "Bug: Hangfire dashboard returned 401 via mapped ports because Hangfire's default LocalRequestsOnlyAuthorizationFilter doesn't see Docker-port-mapped requests as loopback. Fixed: added AutoGrading.Common.Jobs.AllowAllDashboardAuthorizationFilter, wired into Submission + Grading Program.cs DashboardOptions.",
+        "Bug: Identity.Api Program.cs never called ConfigureHttpJsonOptions, so RegisterRequest.Role (AppRole enum) only accepted numeric JSON values — string role values like \"student\" sent 400 empty-body (real FE payload would have broken). Fixed: added the same JsonStringEnumConverter(CamelCase) registration Submission/Grading already had.",
+        "Bug: ExtractedArtifact.Submission and RubricCriterion.Rubric back-navigation properties caused JSON serializer cycles (EF Core relationship fixup even under AsNoTracking) — crashed GET /submissions/{id} and POST/GET /rubrics with 500. Fixed: [JsonIgnore] on both back-references.",
+        "Verified end-to-end via smoke test: register/login (student+lecturer) through gateway, create subject/assignment, upload submission -> SubmissionUploaded consumed by Submission's own handler -> state uploaded->extracting->extracted with 2 artifacts -> ArtifactsExtracted picked up by Grading's Hangfire AiGradingJob (fails only on placeholder OPENROUTER_API_KEY, 401, expected). Notification-api confirmed consuming UserRegistered events (audit_events + notifications rows written)."
+      ],
+      "success_criteria": [
+        "docker compose up khởi động ≥ 9 container không crash — VERIFIED: all 11 containers Up/healthy",
+        "Tất cả health endpoint trả 200 — VERIFIED: ports 5001-5005, 5500, 5173, 5174 all 200",
+        "Login qua gateway trả JWT; publish SubmissionUploaded → subscriber log nhận event — VERIFIED: JWT issued, submission state progressed uploaded->extracted with artifacts, UserRegistered consumed by notification-api",
+        "Hangfire dashboard hiển thị ≥ 2 job — VERIFIED: /hangfire reachable (200) on submission-api + grading-api via mapped ports; AiGradingJob visibly enqueued/retrying"
+      ]
+    },
+    {
+      "step_id": 12,
+      "phase": "document",
+      "description": "Điền requirment.md (bảng microservices, events, jobs, tech stack, ERD/architecture placeholder), thêm be/README.md + fe/README.md hướng dẫn chạy, cập nhật README root. Ghi chú phần còn stub (parser, OpenRouter, admin UI) cho sprint sau. Đánh dấu supabase/ là legacy tham chiếu.",
+      "status": "completed",
+      "input_files": ["requirment.md", "plans/split-fe-be-microservices/spec.md", "docker-compose.yml"],
+      "output_files": ["requirment.md", "be/README.md", "fe/user-web/README.md", "fe/admin-web/README.md", "README.md"],
+      "ai_generated_code": "",
+      "debug_logs": [
+        "Deviation from original output_files list: wrote fe/user-web/README.md + fe/admin-web/README.md instead of a single top-level fe/README.md, since the two frontends have distinct run instructions (env vars, role requirements) and no fe/README.md was ever referenced elsewhere. Root README.md links to both.",
+        "Sourced section 4/6/7 content directly from the codebase (grepped Endpoints/*.cs for the API table, Contracts/Events/*.cs + PublishAsync/Subscribe call sites for the event table, Jobs/*.cs + Hangfire Enqueue call sites for the job table) rather than from memory, to keep requirment.md accurate to the actually-running implementation verified in step 11.",
+        "RubricParsed event has no active subscriber (grepped Notification's Program.cs Subscribe<> calls — only UserRegistered/AiGradingCompleted/GradePublished are wired) — documented honestly as 'published for audit trail; no active subscriber yet' rather than overstating it."
+      ],
+      "success_criteria": [
+        "requirment.md điền đủ mục 4/6/7/10 khớp implementation — DONE: service table (5 services + APIs), event table (6 events with real publisher/subscriber from source), job table (ExtractionJob/AiGradingJob), tech stack all filled from actual code",
+        "Có hướng dẫn chạy toàn hệ bằng docker compose — DONE: root README.md has docker compose up --build + port/service list; be/README.md and fe/*/README.md cross-reference it",
+        "Checklist minimum requirements trong requirment.md tick được các mục đã đạt — DONE: all 9 checklist items ticked with what satisfies them"
+      ]
+    }
+  ]
+}

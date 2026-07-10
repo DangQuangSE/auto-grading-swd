@@ -1,35 +1,33 @@
-import { supabase } from "../lib/supabaseClient";
+import { apiGet, apiPost } from "../lib/apiClient";
+
+type Subject = {
+  id: string;
+  code: string;
+  name: string;
+  createdAt: string;
+};
+
+type Assignment = {
+  id: string;
+  subjectId: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  createdAt: string;
+};
 
 export async function listSubjects() {
-  const { data, error } = await supabase.from("subjects").select("*").order("code");
-  if (error) throw error;
-  return data;
+  const subjects = await apiGet<Subject[]>("/catalog/subjects");
+  return [...subjects].sort((a, b) => a.code.localeCompare(b.code));
 }
 
 export async function createSubject(params: { code: string; name: string; createdBy: string }) {
-  const { data, error } = await supabase
-    .from("subjects")
-    .insert({
-      code: params.code,
-      name: params.name,
-      created_by: params.createdBy,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return apiPost<Subject>("/catalog/subjects", { code: params.code, name: params.name });
 }
 
 export async function listAssignments(subjectId: string) {
-  const { data, error } = await supabase
-    .from("assignments")
-    .select("*")
-    .eq("subject_id", subjectId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data;
+  const assignments = await apiGet<Assignment[]>(`/catalog/assignments?subjectId=${subjectId}`);
+  return [...assignments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function createAssignment(params: {
@@ -38,17 +36,9 @@ export async function createAssignment(params: {
   description?: string;
   createdBy: string;
 }) {
-  const { data, error } = await supabase
-    .from("assignments")
-    .insert({
-      subject_id: params.subjectId,
-      title: params.title,
-      description: params.description ?? "",
-      created_by: params.createdBy,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  return apiPost<Assignment>("/catalog/assignments", {
+    subjectId: params.subjectId,
+    title: params.title,
+    description: params.description ?? "",
+  });
 }

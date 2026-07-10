@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { apiPost, clearStoredSession, getStoredSession, setStoredSession, type AppSession } from "../lib/apiClient";
 import type { AppRole } from "../lib/database.types";
 
 export function isAllowedEducationEmail(email?: string | null) {
@@ -11,24 +11,35 @@ function assertAllowedEducationEmail(email: string) {
   }
 }
 
-export async function getCurrentSession() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return data.session;
+type LoginResponse = {
+  token: string;
+  userId: string;
+  email: string;
+  role: AppRole;
+};
+
+function toSession(response: LoginResponse): AppSession {
+  return {
+    token: response.token,
+    user: { id: response.userId, email: response.email, role: response.role },
+  };
 }
 
-export async function getCurrentUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  return data.user;
+export function getCurrentSession(): AppSession | null {
+  return getStoredSession();
+}
+
+export function getCurrentUser(): AppSession["user"] | null {
+  return getStoredSession()?.user ?? null;
 }
 
 export async function signInWithEmail(email: string, password: string) {
   assertAllowedEducationEmail(email);
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
+  const response = await apiPost<LoginResponse>("/identity/auth/login", { email, password });
+  const session = toSession(response);
+  setStoredSession(session);
+  return session;
 }
 
 export async function signUpWithEmail(params: {
@@ -39,75 +50,20 @@ export async function signUpWithEmail(params: {
 }) {
   assertAllowedEducationEmail(params.email);
 
-  const { data, error } = await supabase.auth.signUp({
+  await apiPost("/identity/auth/register", {
     email: params.email,
     password: params.password,
-    options: {
-      data: {
-        full_name: params.fullName,
-        role: params.role,
-      },
-    },
+    fullName: params.fullName,
+    role: params.role,
   });
 
-  if (error) throw error;
-
-  if (data.user) {
-    await upsertProfile({
-      id: data.user.id,
-      email: params.email,
-      fullName: params.fullName,
-      role: params.role,
-    });
-  }
-
-  return data;
+  return signInWithEmail(params.email, params.password);
 }
 
-export async function signInWithGoogle() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: window.location.origin,
-      queryParams: {
-        access_type: "offline",
-        prompt: "select_account",
-      },
-    },
-  });
-
-  if (error) throw error;
-  return data;
+export async function signInWithGoogle(): Promise<never> {
+  throw new Error("Google sign-in is not available yet. Please sign in with your email and password.");
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export async function getProfile(userId: string) {
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-  if (error) throw error;
-  return data;
-}
-
-export async function upsertProfile(params: {
-  id: string;
-  email: string;
-  fullName: string;
-  role?: AppRole;
-}) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert({
-      id: params.id,
-      email: params.email,
-      full_name: params.fullName,
-      role: params.role ?? "student",
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  clearStoredSession();
 }

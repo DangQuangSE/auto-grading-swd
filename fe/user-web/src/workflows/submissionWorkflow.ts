@@ -22,7 +22,6 @@ export async function submitAndGradeWorkflow(params: {
   const submission = await createSubmission({
     assignmentId: params.assignmentId,
     studentId: params.studentId,
-    rubricId: params.rubricId,
     reportFile: params.reportFile,
     diagramFile: params.diagramFile,
   });

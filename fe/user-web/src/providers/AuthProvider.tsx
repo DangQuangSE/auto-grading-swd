@@ -1,10 +1,9 @@
-import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { getCurrentSession, isAllowedEducationEmail, signOut, upsertProfile } from "../services/authService";
+import type { AppSession } from "../lib/apiClient";
+import { getCurrentSession, isAllowedEducationEmail, signOut } from "../services/authService";
 
 type AuthContextValue = {
-  session: Session | null;
+  session: AppSession | null;
   isLoadingSession: boolean;
   authNotice: string | null;
   refreshSession: () => Promise<void>;
@@ -14,42 +13,29 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AppSession | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
-  async function acceptSession(nextSession: Session | null) {
+  async function acceptSession(nextSession: AppSession | null) {
     if (!nextSession) {
       setSession(null);
       return;
     }
 
-    const email = nextSession.user.email;
-
-    if (!isAllowedEducationEmail(email)) {
+    if (!isAllowedEducationEmail(nextSession.user.email)) {
       await signOut();
       setSession(null);
       setAuthNotice("Only .edu email addresses can access this system. Please use your school email.");
       return;
     }
 
-    await upsertProfile({
-      id: nextSession.user.id,
-      email: email ?? "",
-      fullName:
-        (nextSession.user.user_metadata.full_name as string | undefined) ??
-        (nextSession.user.user_metadata.name as string | undefined) ??
-        email ??
-        "",
-      role: (nextSession.user.user_metadata.role as "student" | "lecturer" | "admin" | undefined) ?? "student",
-    });
-
     setAuthNotice(null);
     setSession(nextSession);
   }
 
   async function refreshSession() {
-    await acceptSession(await getCurrentSession());
+    await acceptSession(getCurrentSession());
   }
 
   async function signOutUser() {
@@ -59,14 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshSession().finally(() => setIsLoadingSession(false));
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void acceptSession(nextSession);
-    });
-
-    return () => subscription.unsubscribe();
+    // No server-side session listener like Supabase's onAuthStateChange: the token is
+    // self-contained (issued once at login) and only changes via refreshSession/signOutUser.
   }, []);
 
   const value = useMemo(

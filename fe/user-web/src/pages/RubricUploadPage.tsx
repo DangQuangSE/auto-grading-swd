@@ -73,17 +73,15 @@ export function RubricUploadPage() {
             <table>
               <thead>
                 <tr>
-                  <th>File</th>
-                  <th>Status</th>
-                  <th>Version</th>
+                  <th>Name</th>
+                  <th>Uploaded</th>
                 </tr>
               </thead>
               <tbody>
                 {(rubrics.data ?? []).map((rubric) => (
                   <tr key={rubric.id}>
-                    <td>{rubric.original_filename}</td>
-                    <td>{rubric.status}</td>
-                    <td>{rubric.version}</td>
+                    <td>{rubric.name}</td>
+                    <td>{new Date(rubric.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

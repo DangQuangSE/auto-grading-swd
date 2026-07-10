@@ -1,10 +1,13 @@
-node_modules/
-dist/
-coverage/
+**/node_modules/
+**/dist/
+**/coverage/
 
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
 *.log
 npm-debug.log*
@@ -24,3 +27,11 @@ dev-server.err.log
 
 .claude
 .codex/
+
+# .NET
+be/**/bin/
+be/**/obj/
+*.user
+
+# Docker local data
+.docker-data/
