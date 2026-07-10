@@ -50,14 +50,6 @@ for the admin app) and point `VITE_API_BASE_URL` at a running gateway (see above
 
 See `be/README.md` for building the ASP.NET Core solution directly with `dotnet build`.
 
-## Legacy Supabase backend (replaced)
-
-`supabase/` still holds the previous backend implementation (Postgres migrations in
-`supabase/migrations`, and Edge Functions `extract-submission` / `grade-submission`) kept as
-a reference for how extraction/grading logic was ported into the new `be/` microservices
-(`Submission`'s `ExtractionJob` and `Grading`'s `AiGradingJob`, respectively). It is not used
-by the running system.
-
 ## Rubric and Submission Docs
 
 - `docs/rubric-docx-format.md`
