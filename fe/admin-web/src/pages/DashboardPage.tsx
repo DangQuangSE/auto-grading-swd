@@ -1,17 +1,18 @@
 import { useAuth } from "../providers/AuthProvider";
+import { Panel } from "../components/ui/Panel";
 
 export function DashboardPage() {
-  const { session, signOut } = useAuth();
+  const { session } = useAuth();
 
   return (
-    <section className="dashboard-page">
-      <header className="dashboard-header">
-        <h1>Admin dashboard</h1>
-        <button type="button" onClick={signOut}>
-          Sign out
-        </button>
+    <section className="page-grid">
+      <header className="page-header">
+        <p>Admin</p>
+        <h1>Dashboard</h1>
       </header>
-      <p>Signed in as {session?.user.email}.</p>
+      <Panel className="compact-page">
+        <p>Signed in as {session?.user.email}.</p>
+      </Panel>
     </section>
   );
 }

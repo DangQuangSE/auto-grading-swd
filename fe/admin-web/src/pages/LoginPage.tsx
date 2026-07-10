@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
+import { Field, TextInput } from "../components/ui/Field";
+import { FormMessage } from "../components/ui/FormMessage";
 import { apiPost, type AdminSession } from "../lib/apiClient";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -47,33 +50,31 @@ export function LoginPage() {
   }
 
   return (
-    <section className="login-page">
-      <form className="login-form" onSubmit={handleSubmit}>
+    <main className="auth-shell">
+      <form className="form-panel" onSubmit={handleSubmit}>
         <h1>Admin sign in</h1>
-        <label>
-          Email
-          <input
+        <Field label="Email">
+          <TextInput
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
           />
-        </label>
-        <label>
-          Password
-          <input
+        </Field>
+        <Field label="Password">
+          <TextInput
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             minLength={6}
             required
           />
-        </label>
-        {error ? <p className="form-error">{error}</p> : null}
-        <button type="submit" disabled={isSubmitting}>
+        </Field>
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}
-        </button>
+        </Button>
       </form>
-    </section>
+    </main>
   );
 }
