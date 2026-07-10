@@ -21,3 +21,6 @@ Thumbs.db
 
 dev-server.out.log
 dev-server.err.log
+
+.claude
+.codex
