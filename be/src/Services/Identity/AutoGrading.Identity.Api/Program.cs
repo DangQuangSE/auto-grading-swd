@@ -1,5 +1,6 @@
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
+using AutoGrading.Identity.Api.Auth;
 using AutoGrading.Identity.Api.Data;
 using AutoGrading.Identity.Api.Domain;
 using AutoGrading.Identity.Api.Endpoints;
@@ -18,6 +19,7 @@ builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddJwtTokenGenerator(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
+builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection(GoogleAuthOptions.SectionName));
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));

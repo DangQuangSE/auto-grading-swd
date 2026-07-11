@@ -2,7 +2,11 @@ import { apiPost, clearStoredSession, getStoredSession, setStoredSession, type A
 import type { AppRole } from "../lib/database.types";
 
 export function isAllowedEducationEmail(email?: string | null) {
-  return Boolean(email?.trim().toLowerCase().endsWith(".edu"));
+  const domain = email?.trim().toLowerCase().split("@")[1];
+  if (!domain) {
+    return false;
+  }
+  return domain.endsWith(".edu") || domain.includes(".edu.");
 }
 
 function assertAllowedEducationEmail(email: string) {
@@ -60,8 +64,11 @@ export async function signUpWithEmail(params: {
   return signInWithEmail(params.email, params.password);
 }
 
-export async function signInWithGoogle(): Promise<never> {
-  throw new Error("Google sign-in is not available yet. Please sign in with your email and password.");
+export async function signInWithGoogle(idToken: string) {
+  const response = await apiPost<LoginResponse>("/identity/auth/google", { idToken });
+  const session = toSession(response);
+  setStoredSession(session);
+  return session;
 }
 
 export async function signOut() {
