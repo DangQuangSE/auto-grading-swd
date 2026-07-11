@@ -1,14 +1,14 @@
 import { apiGet, apiPost } from "../lib/apiClient";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, type PagedResult } from "../lib/pagination";
 
-type Subject = {
+export type Subject = {
   id: string;
   code: string;
   name: string;
   createdAt: string;
 };
 
-type Assignment = {
+export type Assignment = {
   id: string;
   subjectId: string;
   title: string;
@@ -32,20 +32,29 @@ export async function createSubject(params: { code: string; name: string; create
   return apiPost<Subject>("/catalog/subjects", { code: params.code, name: params.name });
 }
 
-export async function listAssignments(subjectId: string) {
-  const assignments = await apiGet<Assignment[]>(`/catalog/assignments?subjectId=${subjectId}`);
-  return [...assignments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+export async function listAssignments(params: { subjectId: string; page?: number; pageSize?: number }) {
+  const page = params.page ?? DEFAULT_PAGE;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const query = new URLSearchParams({
+    subjectId: params.subjectId,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+
+  return apiGet<PagedResult<Assignment>>(`/catalog/assignments?${query.toString()}`);
 }
 
 export async function createAssignment(params: {
   subjectId: string;
   title: string;
   description?: string;
+  dueDate?: string;
   createdBy: string;
 }) {
   return apiPost<Assignment>("/catalog/assignments", {
     subjectId: params.subjectId,
     title: params.title,
     description: params.description ?? "",
+    dueDate: params.dueDate ?? null,
   });
 }

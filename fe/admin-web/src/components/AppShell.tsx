@@ -1,10 +1,11 @@
-import { ClipboardCheck, GraduationCap, LayoutDashboard, Library, LogOut, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, ClipboardList, GraduationCap, LayoutDashboard, Library, LogOut, ShieldCheck } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
 
 const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/subjects", label: "Subjects", icon: Library },
+  { to: "/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/rubrics", label: "Rubric", icon: ClipboardCheck },
   { to: "/review", label: "Review", icon: GraduationCap },
 ];

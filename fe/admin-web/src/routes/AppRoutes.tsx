@@ -9,6 +9,9 @@ const LoginPage = lazy(() => import("../pages/LoginPage").then((module) => ({ de
 const SubjectsPage = lazy(() =>
   import("../pages/SubjectsPage").then((module) => ({ default: module.SubjectsPage })),
 );
+const AssignmentsPage = lazy(() =>
+  import("../pages/AssignmentsPage").then((module) => ({ default: module.AssignmentsPage })),
+);
 const RubricUploadPage = lazy(() =>
   import("../pages/RubricUploadPage").then((module) => ({ default: module.RubricUploadPage })),
 );
@@ -32,6 +35,7 @@ export function AppRoutes() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/subjects" element={<SubjectsPage />} />
+            <Route path="/assignments" element={<AssignmentsPage />} />
             <Route path="/rubrics" element={<RubricUploadPage />} />
             <Route path="/review" element={<SubmissionReviewPage />} />
             <Route path="/review/:submissionId" element={<SubmissionReviewPage />} />
