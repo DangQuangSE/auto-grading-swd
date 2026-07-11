@@ -28,13 +28,13 @@ export function LoginPage() {
   }
 
   function acceptAdminLogin(response: LoginResponse) {
-    if (response.user.role !== "admin") {
-      throw new Error("This account does not have admin access.");
+    if (response.user.role !== "admin" && response.user.role !== "lecturer") {
+      throw new Error("This account does not have lecturer or admin access.");
     }
 
     const session: AdminSession = {
       token: response.token,
-      user: { id: response.user.id, email: response.user.email, role: "admin" },
+      user: { id: response.user.id, email: response.user.email, role: response.user.role },
     };
     setSession(session);
   }
