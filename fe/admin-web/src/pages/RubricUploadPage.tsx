@@ -2,11 +2,12 @@ import { useState } from "react";
 import { ClipboardCheck } from "lucide-react";
 import { FileDropzone } from "../components/FileDropzone";
 import { Button } from "../components/ui/Button";
-import { Field, SelectInput, TextInput } from "../components/ui/Field";
+import { Field, SelectInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
 import { useRubrics, useUploadRubric } from "../hooks/useRubrics";
-import { useSubjects } from "../hooks/useSubjects";
+import { useAssignments, useSubjects } from "../hooks/useSubjects";
+import { MAX_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
 
 export function RubricUploadPage() {
@@ -14,9 +15,15 @@ export function RubricUploadPage() {
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
   const { session } = useAuth();
-  const subjects = useSubjects();
+  const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
+  const assignments = useAssignments(subjectId, { pageSize: MAX_PAGE_SIZE });
   const rubrics = useRubrics(subjectId);
   const uploadRubric = useUploadRubric();
+
+  function handleSubjectChange(nextSubjectId: string) {
+    setSubjectId(nextSubjectId);
+    setAssignmentId("");
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,17 +49,28 @@ export function RubricUploadPage() {
       </header>
       <form className="form-panel" onSubmit={handleSubmit}>
         <Field label="Subject">
-          <SelectInput value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required>
+          <SelectInput value={subjectId} onChange={(event) => handleSubjectChange(event.target.value)} required>
             <option value="">Select subject</option>
-            {(subjects.data ?? []).map((subject) => (
+            {(subjects.data?.items ?? []).map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.code} - {subject.name}
               </option>
             ))}
           </SelectInput>
         </Field>
-        <Field label="Assignment ID (optional)">
-          <TextInput value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)} placeholder="UUID" />
+        <Field label="Assignment (optional)">
+          <SelectInput
+            value={assignmentId}
+            onChange={(event) => setAssignmentId(event.target.value)}
+            disabled={!subjectId}
+          >
+            <option value="">Whole subject (no specific assignment)</option>
+            {(assignments.data?.items ?? []).map((assignment) => (
+              <option key={assignment.id} value={assignment.id}>
+                {assignment.title}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
         <FileDropzone label="Rubric Word file" accept=".docx" file={file} onChange={setFile} />
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}

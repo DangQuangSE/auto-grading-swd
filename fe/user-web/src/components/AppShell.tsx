@@ -1,14 +1,11 @@
-import { BookOpen, ClipboardCheck, FileUp, GraduationCap, LogOut, UserRound } from "lucide-react";
+import { FileUp, GraduationCap, LogOut, UserRound } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
 
-export type AppView = "lecturer" | "rubric" | "student" | "review" | "result";
+export type AppView = "student" | "result";
 
-const navItems: Array<{ to: string; label: string; icon: typeof BookOpen }> = [
-  { to: "/dashboard", label: "Dashboard", icon: BookOpen },
-  { to: "/rubrics", label: "Rubric", icon: ClipboardCheck },
+const navItems: Array<{ to: string; label: string; icon: typeof FileUp }> = [
   { to: "/submit", label: "Submit", icon: FileUp },
-  { to: "/review", label: "Review", icon: GraduationCap },
   { to: "/result", label: "Result", icon: UserRound },
 ];
 

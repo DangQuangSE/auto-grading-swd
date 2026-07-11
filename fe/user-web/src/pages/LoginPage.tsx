@@ -1,4 +1,5 @@
-import { Chrome, LockKeyhole } from "lucide-react";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
+import { LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -45,15 +46,22 @@ export function LoginPage() {
     }
   }
 
-  async function handleGoogleSignIn() {
+  async function handleGoogleSignIn(credential: CredentialResponse) {
     setError(null);
     setMessage(null);
-    setIsSubmitting(true);
 
+    if (!credential.credential) {
+      setError("Google sign in failed.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(credential.credential);
+      await refreshSession();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google sign in failed.");
+    } finally {
       setIsSubmitting(false);
     }
   }
@@ -66,10 +74,13 @@ export function LoginPage() {
         <span className="page-note">Only .edu email addresses can access this grading workspace.</span>
       </header>
       <form className="form-panel" onSubmit={handleSubmit}>
-        <Button variant="secondary" type="button" onClick={handleGoogleSignIn} disabled={isSubmitting}>
-          <Chrome aria-hidden="true" />
-          Continue with Google
-        </Button>
+        <div className="google-signin-button">
+          <GoogleLogin
+            onSuccess={handleGoogleSignIn}
+            onError={() => setError("Google sign in failed.")}
+            text="continue_with"
+          />
+        </div>
         <div className="form-divider">
           <span>Email</span>
         </div>

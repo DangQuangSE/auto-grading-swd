@@ -1,3 +1,4 @@
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -8,11 +9,9 @@ import { useAuth } from "../providers/AuthProvider";
 
 type LoginResponse = {
   token: string;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-  };
+  userId: string;
+  email: string;
+  role: string;
 };
 
 export function LoginPage() {
@@ -26,6 +25,18 @@ export function LoginPage() {
     return <Navigate to="/" replace />;
   }
 
+  function acceptAdminLogin(response: LoginResponse) {
+    if (response.role !== "admin" && response.role !== "lecturer") {
+      throw new Error("This account does not have lecturer or admin access.");
+    }
+
+    const session: AdminSession = {
+      token: response.token,
+      user: { id: response.userId, email: response.email, role: response.role },
+    };
+    setSession(session);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -33,17 +44,28 @@ export function LoginPage() {
 
     try {
       const response = await apiPost<LoginResponse>("/identity/auth/login", { email, password });
-      if (response.user.role !== "admin") {
-        throw new Error("This account does not have admin access.");
-      }
-
-      const session: AdminSession = {
-        token: response.token,
-        user: { id: response.user.id, email: response.user.email, role: "admin" },
-      };
-      setSession(session);
+      acceptAdminLogin(response);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sign in failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSignIn(credential: CredentialResponse) {
+    setError(null);
+
+    if (!credential.credential) {
+      setError("Google sign in failed.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await apiPost<LoginResponse>("/identity/auth/google", { idToken: credential.credential });
+      acceptAdminLogin(response);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Google sign in failed.");
     } finally {
       setIsSubmitting(false);
     }
@@ -53,6 +75,11 @@ export function LoginPage() {
     <main className="auth-shell">
       <form className="form-panel" onSubmit={handleSubmit}>
         <h1>Admin sign in</h1>
+        <GoogleLogin
+          onSuccess={handleGoogleSignIn}
+          onError={() => setError("Google sign in failed.")}
+          text="continue_with"
+        />
         <Field label="Email">
           <TextInput
             type="email"

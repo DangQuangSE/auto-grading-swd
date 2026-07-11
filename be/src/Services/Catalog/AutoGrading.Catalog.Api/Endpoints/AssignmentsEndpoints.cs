@@ -1,5 +1,6 @@
 using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
+using AutoGrading.Contracts.Pagination;
 using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Catalog.Api.Endpoints;
@@ -10,15 +11,24 @@ public static class AssignmentsEndpoints
     {
         var group = app.MapGroup("/assignments").WithTags("Assignments");
 
-        group.MapGet("/", async (Guid? subjectId, CatalogDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (Guid? subjectId, int? page, int? pageSize, CatalogDbContext db, CancellationToken ct) =>
             {
+                var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+
                 var query = db.Assignments.AsNoTracking().AsQueryable();
                 if (subjectId is not null)
                 {
                     query = query.Where(a => a.SubjectId == subjectId);
                 }
 
-                return Results.Ok(await query.ToListAsync(ct));
+                var totalCount = await query.CountAsync(ct);
+                var items = await query
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Skip((normalizedPage - 1) * normalizedPageSize)
+                    .Take(normalizedPageSize)
+                    .ToListAsync(ct);
+
+                return Results.Ok(new PagedResult<Assignment>(items, normalizedPage, normalizedPageSize, totalCount));
             })
             .RequireAuthorization();
 

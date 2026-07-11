@@ -6,7 +6,7 @@ export type AdminSession = {
   user: {
     id: string;
     email: string;
-    role: "admin";
+    role: "admin" | "lecturer";
   };
 };
 
@@ -82,4 +82,8 @@ export function apiPost<T>(path: string, body?: unknown): Promise<T> {
     method: "POST",
     body: body != null ? JSON.stringify(body) : undefined,
   });
+}
+
+export function apiPostForm<T>(path: string, form: FormData): Promise<T> {
+  return apiRequest<T>(path, { method: "POST", body: form });
 }
