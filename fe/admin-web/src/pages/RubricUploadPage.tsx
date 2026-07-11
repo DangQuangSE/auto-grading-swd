@@ -7,6 +7,7 @@ import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
 import { useRubrics, useUploadRubric } from "../hooks/useRubrics";
 import { useSubjects } from "../hooks/useSubjects";
+import { MAX_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
 
 export function RubricUploadPage() {
@@ -14,7 +15,7 @@ export function RubricUploadPage() {
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
   const { session } = useAuth();
-  const subjects = useSubjects();
+  const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
   const rubrics = useRubrics(subjectId);
   const uploadRubric = useUploadRubric();
 
@@ -44,7 +45,7 @@ export function RubricUploadPage() {
         <Field label="Subject">
           <SelectInput value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required>
             <option value="">Select subject</option>
-            {(subjects.data ?? []).map((subject) => (
+            {(subjects.data?.items ?? []).map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.code} - {subject.name}
               </option>

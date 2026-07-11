@@ -1,8 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { createSubject, listAssignments, listSubjects } from "../services/subjectService";
 
-export function useSubjects() {
-  return useQuery({ queryKey: ["subjects"], queryFn: listSubjects });
+export function useSubjects(params: { page?: number; pageSize?: number; search?: string } = {}) {
+  const page = params.page ?? DEFAULT_PAGE;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const search = params.search ?? "";
+
+  return useQuery({
+    queryKey: ["subjects", page, pageSize, search],
+    queryFn: () => listSubjects({ page, pageSize, search }),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useCreateSubject() {

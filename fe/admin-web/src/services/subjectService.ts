@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "../lib/apiClient";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, type PagedResult } from "../lib/pagination";
 
 type Subject = {
   id: string;
@@ -16,9 +17,15 @@ type Assignment = {
   createdAt: string;
 };
 
-export async function listSubjects() {
-  const subjects = await apiGet<Subject[]>("/catalog/subjects");
-  return [...subjects].sort((a, b) => a.code.localeCompare(b.code));
+export async function listSubjects(params: { page?: number; pageSize?: number; search?: string } = {}) {
+  const page = params.page ?? DEFAULT_PAGE;
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  return apiGet<PagedResult<Subject>>(`/catalog/subjects?${query.toString()}`);
 }
 
 export async function createSubject(params: { code: string; name: string; createdBy: string }) {

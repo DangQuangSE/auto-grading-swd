@@ -3,15 +3,19 @@ import { Plus } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Field, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
+import { Pagination } from "../components/ui/Pagination";
 import { StateBlock } from "../components/ui/StateBlock";
 import { useCreateSubject, useSubjects } from "../hooks/useSubjects";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
 
 export function SubjectsPage() {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [page, setPage] = useState(DEFAULT_PAGE);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { session } = useAuth();
-  const subjects = useSubjects();
+  const subjects = useSubjects({ page, pageSize });
   const createSubject = useCreateSubject();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -28,6 +32,12 @@ export function SubjectsPage() {
     });
     setCode("");
     setName("");
+    setPage(DEFAULT_PAGE);
+  }
+
+  function handlePageSizeChange(nextPageSize: number) {
+    setPageSize(nextPageSize);
+    setPage(DEFAULT_PAGE);
   }
 
   return (
@@ -57,28 +67,38 @@ export function SubjectsPage() {
       <div className="table-panel">
         {subjects.isLoading ? <StateBlock title="Loading subjects" /> : null}
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}
-        {(subjects.data ?? []).length === 0 && !subjects.isLoading ? (
+        {subjects.data && subjects.data.items.length === 0 ? (
           <StateBlock title="No subjects yet" detail="Create a subject to start uploading rubrics and assignments." />
         ) : null}
-        {(subjects.data ?? []).length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(subjects.data ?? []).map((subject) => (
-                <tr key={subject.id}>
-                  <td>{subject.code}</td>
-                  <td>{subject.name}</td>
-                  <td>{new Date(subject.createdAt).toLocaleString()}</td>
+        {subjects.data && subjects.data.items.length > 0 ? (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {subjects.data.items.map((subject) => (
+                  <tr key={subject.id}>
+                    <td>{subject.code}</td>
+                    <td>{subject.name}</td>
+                    <td>{new Date(subject.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Pagination
+              page={subjects.data.page}
+              pageSize={subjects.data.pageSize}
+              totalCount={subjects.data.totalCount}
+              totalPages={subjects.data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </>
         ) : null}
       </div>
     </section>

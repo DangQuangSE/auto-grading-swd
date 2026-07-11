@@ -9,11 +9,9 @@ import { useAuth } from "../providers/AuthProvider";
 
 type LoginResponse = {
   token: string;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-  };
+  userId: string;
+  email: string;
+  role: string;
 };
 
 export function LoginPage() {
@@ -28,13 +26,13 @@ export function LoginPage() {
   }
 
   function acceptAdminLogin(response: LoginResponse) {
-    if (response.user.role !== "admin" && response.user.role !== "lecturer") {
+    if (response.role !== "admin" && response.role !== "lecturer") {
       throw new Error("This account does not have lecturer or admin access.");
     }
 
     const session: AdminSession = {
       token: response.token,
-      user: { id: response.user.id, email: response.user.email, role: response.user.role },
+      user: { id: response.userId, email: response.email, role: response.role },
     };
     setSession(session);
   }
