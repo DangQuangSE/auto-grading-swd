@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using AutoGrading.Common.OpenRouter;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace AutoGrading.Common.Tests.OpenRouter;
@@ -13,7 +14,7 @@ public class ParseRubricCriteriaAsyncTests
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://openrouter.example/") };
         var options = Options.Create(new OpenRouterOptions { ApiKey = "test-key" });
 
-        return new OpenRouterClient(httpClient, options);
+        return new OpenRouterClient(httpClient, options, NullLogger<OpenRouterClient>.Instance);
     }
 
     private static string BuildChatCompletionPayload(string messageContent)
@@ -66,6 +67,25 @@ public class ParseRubricCriteriaAsyncTests
 
         var criterion = Assert.Single(result);
         Assert.Equal("Correctness", criterion.Name);
+    }
+
+    [Fact]
+    public async Task ResponseWrappedInMarkdownCodeFence_StripsFenceAndParsesCriteria()
+    {
+        var content = """
+            ```json
+            [
+              { "name": "Correctness", "description": "Solution is correct", "maxScore": 40, "order": 0 }
+            ]
+            ```
+            """;
+        var client = CreateClient(content);
+
+        var result = await client.ParseRubricCriteriaAsync("some rubric document text", CancellationToken.None);
+
+        var criterion = Assert.Single(result);
+        Assert.Equal("Correctness", criterion.Name);
+        Assert.Equal(40m, criterion.MaxScore);
     }
 
     [Fact]

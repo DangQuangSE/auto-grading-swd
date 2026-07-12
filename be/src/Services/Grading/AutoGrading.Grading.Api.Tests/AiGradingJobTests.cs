@@ -5,6 +5,7 @@ using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
 using AutoGrading.Grading.Api.Jobs;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace AutoGrading.Grading.Api.Tests;
@@ -19,7 +20,7 @@ public class AiGradingJobTests
     // No API key configured -> OpenRouterClient falls back to its deterministic stub, so these
     // tests exercise AiGradingJob's rubric-lookup/failure logic without making real HTTP calls.
     private static IOpenRouterClient CreateStubOpenRouterClient() =>
-        new OpenRouterClient(new HttpClient(), Options.Create(new OpenRouterOptions()));
+        new OpenRouterClient(new HttpClient(), Options.Create(new OpenRouterOptions()), NullLogger<OpenRouterClient>.Instance);
 
     private sealed class RecordingEventBus : IEventBus
     {

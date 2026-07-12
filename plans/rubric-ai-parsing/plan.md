@@ -1,6 +1,6 @@
 # Plan: AI-based Rubric Parsing
 
-Status: 🟡 In Progress
+Status: 🟢 Complete
 Date: 2026-07-12
 Mode: Hard
 
@@ -12,8 +12,8 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 <!-- Updated by cook automatically — do not edit manually -->
 
 **Last active:** 2026-07-12 (session)
-**Phase in progress:** phase-07-frontend-ui
-**Status:** Phases 1–6 complete (build green, catalog-api/grading-api/submission-api all verified healthy); starting Phase 7 (final phase).
+**Phase in progress:** none — all 7 phases complete
+**Status:** Plan complete. Full upload→AI-extract→edit→confirm→Grading-consume flow verified live in the browser end-to-end (see decisions below), not just via automated tests.
 
 ### Decisions made this session
 - Registered `OpenRouterClient` in Catalog/Grading via `AddHttpClient<IOpenRouterClient, OpenRouterClient>()` (typed client), not a singleton as the phase file literally said — matches the existing working Grading pattern.
@@ -41,9 +41,12 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 - `AiGradingJob` now looks up `LocalRubrics` by `AssignmentId` (not `RubricId`) — matches how the job is invoked (per-assignment submissions), consistent with `LocalRubric.AssignmentId` already being populated by `RubricConfirmedHandler` from the event.
 - Did NOT touch the pre-existing `reportContent`/`diagramContent: string.Empty` stub in `AiGradingJob` — that's a separate, already-existing gap (submission content isn't wired to the grading prompt at all) unrelated to rubric criteria and out of scope for this plan.
 - Added `AiGradingJobTests` (no-criteria-throws-and-fails-run; criteria-exist-grades-and-publishes) using the same real `OpenRouterClient` in its no-API-key stub mode rather than a mock, since that's already a first-class supported code path.
-
-### Next immediate action
-Implement Phase 7 (Frontend UI, final phase): criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload, Parsing status indicator.
+- FE: `RubricCriteriaPanel` component (new) drives the Draft/Parsing/Confirmed views for a single selected rubric; `RubricUploadPage` tracks `selectedRubricId` and auto-selects the just-uploaded rubric so the Parsing indicator is visible immediately. `useRubrics()` polls every 2s only while some rubric in the list is `Status = parsing`, not unconditionally.
+- **Live browser test (real lecturer login + real `.docx` upload + real OpenRouter call) found and fixed two production bugs no automated test had caught:**
+  1. `DbUpdateConcurrencyException` on every `RubricParsingJob` run against real SQL Server: the same "mutate `rubric.Criteria` navigation collection" anti-pattern from the Phase 5 Grading bug also broke Catalog once `Rubric.RowVersion` (added Phase 2) was live — my Phase 5 session-note claim that "Catalog's pattern works fine against real SQL Server" was wrong; it had never actually been exercised end-to-end, only migration-checked. Fixed in `RubricParsingJob`, `RubricsEndpoints.UploadRubricAsync` (re-upload branch), and `UpdateCriteriaAsync` by centralizing into `CatalogDbContext.ReplaceRubricCriteria(rubric, newCriteria)`, which mutates the `RubricCriteria` DbSet directly instead of the loaded navigation collection.
+  2. Real AI extraction was silently falling back to the "Overall Quality" stub even with a valid API key: DeepSeek wrapped its JSON response in a ```` ```json ```` markdown fence, which `JsonDocument.Parse` rejected, and the failure was swallowed by the existing `parsed ?? StubRubricCriteria()` fallback with no logging. Fixed by adding `OpenRouterClient.StripCodeFence` (applied in the shared `TryParseJsonArray` helper, so it also protects the grading-response path) plus an `ILogger<OpenRouterClient>` warning log on parse failure, and split `StubRubricCriteria` into distinct reasons ("no API key" vs "AI response unparseable") so the FE description field tells the lecturer which happened.
+- Registered a real test account (`qa-lecturer@test.edu`, role `Lecturer`) via `POST /identity/auth/register` for the live verification — left in the dev DB, not cleaned up (harmless, dev-only, follows existing "no seed data" convention for this environment).
+- Verified live: upload → Parsing badge + auto-refetch → Draft with 3 real AI-extracted criteria (Correctness/Code Quality/Documentation, matching the source `.docx`) → edited a score → Save (Confirm disabled while dirty) → Confirm → read-only + Unlock-only UI → confirmed `RubricConfirmedHandler` logged "upserted 3 criteria" in grading-api → Unlock → editable again with the edited value retained.
 
 ## Phases
 
@@ -53,7 +56,7 @@ Implement Phase 7 (Frontend UI, final phase): criteria preview/edit screen, conf
 - [x] Phase 4: Catalog Edit, Confirm & Unlock Endpoints — Add criteria edit (Draft-only), confirm (Draft→Confirmed), unlock (Confirmed→Draft) endpoints; confirm publishes `RubricConfirmed` event
 - [x] Phase 5: Event Contract & Grading Consumer — Define `RubricConfirmed` event contract, create event handler in Grading, add local criteria table to `GradingDbContext`, subscribe handler in `Program.cs`
 - [x] Phase 6: Grading AiGradingJob Update — Refactor `AiGradingJob` to read criteria from local table instead of placeholder; fail/retry if no confirmed criteria exist
-- [ ] Phase 7: Frontend UI — Add criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload; handle Parsing status indicator
+- [x] Phase 7: Frontend UI — Add criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload; handle Parsing status indicator
 
 ## Research Summary
 

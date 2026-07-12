@@ -53,24 +53,20 @@ public sealed class RubricParsingJob(
 
             var extractedCriteria = await openRouterClient.ParseRubricCriteriaAsync(documentText, cancellationToken);
 
-            rubric.Criteria.Clear();
-            foreach (var criterion in extractedCriteria)
+            var newCriteria = db.ReplaceRubricCriteria(rubric, extractedCriteria.Select(criterion => new RubricCriterion
             {
-                rubric.Criteria.Add(new RubricCriterion
-                {
-                    RubricId = rubric.Id,
-                    Name = criterion.Name,
-                    Description = criterion.Description,
-                    MaxScore = criterion.MaxScore,
-                    OrderIndex = criterion.Order,
-                });
-            }
+                RubricId = rubric.Id,
+                Name = criterion.Name,
+                Description = criterion.Description,
+                MaxScore = criterion.MaxScore,
+                OrderIndex = criterion.Order,
+            }).ToList());
 
             rubric.Status = RubricStatus.Draft;
             await db.SaveChangesAsync(cancellationToken);
 
             await eventBus.PublishAsync(
-                new RubricParsed(rubric.Id, rubric.SubjectId, rubric.AssignmentId, rubric.Criteria.Count),
+                new RubricParsed(rubric.Id, rubric.SubjectId, rubric.AssignmentId, newCriteria.Count),
                 cancellationToken);
         }
         catch (Exception ex)

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AutoGrading.Common.OpenRouter;
@@ -34,7 +35,7 @@ public interface IOpenRouterClient
 /// Calls OpenRouter for AI grading and rubric-criteria extraction when an API key is configured;
 /// otherwise falls back to a deterministic stub so callers are exercisable without external credentials.
 /// </summary>
-public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions> options) : IOpenRouterClient
+public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions> options, ILogger<OpenRouterClient> logger) : IOpenRouterClient
 {
     private readonly OpenRouterOptions _options = options.Value;
 
@@ -62,14 +63,23 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
-            return StubRubricCriteria();
+            return StubRubricCriteria("Stub criterion (no OpenRouter API key configured).");
         }
 
         var prompt = BuildRubricExtractionPrompt(documentText);
         var payload = await SendChatCompletionAsync(prompt, cancellationToken);
         var parsed = TryParseRubricCriteriaResponse(payload);
 
-        return parsed ?? StubRubricCriteria();
+        if (parsed is not null)
+        {
+            return parsed;
+        }
+
+        logger.LogWarning(
+            "OpenRouterClient: rubric-criteria extraction response could not be parsed into valid criteria; falling back to stub. Response length: {PayloadLength}",
+            payload.Length);
+
+        return StubRubricCriteria("AI extraction could not parse a valid response for this document; add criteria manually.");
     }
 
     private async Task<string> SendChatCompletionAsync(string prompt, CancellationToken cancellationToken)
@@ -192,7 +202,7 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
                 return null;
             }
 
-            using var contentDoc = JsonDocument.Parse(content);
+            using var contentDoc = JsonDocument.Parse(StripCodeFence(content));
             var results = new List<T>();
 
             foreach (var item in contentDoc.RootElement.EnumerateArray())
@@ -223,6 +233,29 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
             .GetString();
     }
 
+    /// <summary>Some models wrap JSON responses in a markdown code fence (```json ... ```) despite being
+    /// asked for strict JSON; strip that fence so <see cref="JsonDocument.Parse(string)"/> can still succeed.</summary>
+    private static string StripCodeFence(string content)
+    {
+        var trimmed = content.Trim();
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var firstNewline = trimmed.IndexOf('\n');
+        if (firstNewline < 0)
+        {
+            return trimmed;
+        }
+
+        var withoutOpeningFence = trimmed[(firstNewline + 1)..];
+        var closingFenceIndex = withoutOpeningFence.LastIndexOf("```", StringComparison.Ordinal);
+        var end = closingFenceIndex >= 0 ? closingFenceIndex : withoutOpeningFence.Length;
+
+        return withoutOpeningFence[..end].Trim();
+    }
+
     private static IReadOnlyList<GradingCriterionResult> StubGrade(IReadOnlyList<GradingCriterionInput> criteria) =>
         criteria
             .Select(c => new GradingCriterionResult(
@@ -235,6 +268,6 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
                 Confidence: 0.5m))
             .ToList();
 
-    private static IReadOnlyList<ExtractedRubricCriterion> StubRubricCriteria() =>
-        [new ExtractedRubricCriterion("Overall Quality", "Stub criterion (no OpenRouter API key configured).", 10m, 0)];
+    private static IReadOnlyList<ExtractedRubricCriterion> StubRubricCriteria(string reason) =>
+        [new ExtractedRubricCriterion("Overall Quality", reason, 10m, 0)];
 }

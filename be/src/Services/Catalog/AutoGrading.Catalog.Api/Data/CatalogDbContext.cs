@@ -68,4 +68,15 @@ public class CatalogDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
+
+    /// <summary>Replaces a rubric's criteria wholesale via the <see cref="RubricCriteria"/> DbSet directly
+    /// (not <c>rubric.Criteria.Clear()</c>/<c>.Add()</c>) — mutating a loaded navigation collection on an
+    /// entity with a RowVersion concurrency token causes SaveChanges to throw DbUpdateConcurrencyException.</summary>
+    public List<RubricCriterion> ReplaceRubricCriteria(Rubric rubric, List<RubricCriterion> newCriteria)
+    {
+        RubricCriteria.RemoveRange(rubric.Criteria);
+        RubricCriteria.AddRange(newCriteria);
+
+        return newCriteria;
+    }
 }

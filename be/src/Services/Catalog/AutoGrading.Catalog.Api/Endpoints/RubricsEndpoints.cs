@@ -106,7 +106,7 @@ public static class RubricsEndpoints
             existingRubric.Name = form.Name;
             existingRubric.FileObjectKey = objectKey;
             existingRubric.Status = RubricStatus.Parsing;
-            existingRubric.Criteria.Clear();
+            db.RubricCriteria.RemoveRange(existingRubric.Criteria);
             rubric = existingRubric;
         }
         else
@@ -171,21 +171,17 @@ public static class RubricsEndpoints
             return Results.Conflict($"Rubric {id} is '{rubric.Status}', not 'Draft' — unlock it before editing criteria.");
         }
 
-        rubric.Criteria.Clear();
-        foreach (var criterion in request)
+        var newCriteria = db.ReplaceRubricCriteria(rubric, request.Select(criterion => new RubricCriterion
         {
-            rubric.Criteria.Add(new RubricCriterion
-            {
-                RubricId = rubric.Id,
-                Name = criterion.Name,
-                Description = criterion.Description,
-                MaxScore = criterion.MaxScore,
-                OrderIndex = criterion.OrderIndex,
-            });
-        }
+            RubricId = rubric.Id,
+            Name = criterion.Name,
+            Description = criterion.Description,
+            MaxScore = criterion.MaxScore,
+            OrderIndex = criterion.OrderIndex,
+        }).ToList());
 
         var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
-        return saveError ?? Results.Ok(rubric.Criteria);
+        return saveError ?? Results.Ok(newCriteria);
     }
 
     private static async Task<IResult> ConfirmRubricAsync(
