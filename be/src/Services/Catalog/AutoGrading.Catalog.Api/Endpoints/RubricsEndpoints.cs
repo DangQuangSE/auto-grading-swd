@@ -26,6 +26,22 @@ public static class RubricsEndpoints
             })
             .RequireAuthorization();
 
+        group.MapGet("/{id:guid}/file", async (Guid id, CatalogDbContext db, IObjectStorage storage, CancellationToken ct) =>
+            {
+                var rubric = await db.Rubrics.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
+                if (rubric?.FileObjectKey is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var stream = await storage.DownloadAsync(rubric.FileObjectKey, ct);
+                return Results.File(
+                    stream,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    rubric.Name);
+            })
+            .RequireAuthorization();
+
         group.MapPost("/upload", UploadRubricAsync)
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"))
             .DisableAntiforgery();

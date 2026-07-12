@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ClipboardCheck, Download } from "lucide-react";
 import { FileDropzone } from "../components/FileDropzone";
 import { Button } from "../components/ui/Button";
 import { Field, SelectInput } from "../components/ui/Field";
@@ -9,32 +9,47 @@ import { useRubrics, useUploadRubric } from "../hooks/useRubrics";
 import { useAssignments, useSubjects } from "../hooks/useSubjects";
 import { MAX_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
+import { downloadRubricFile, type RubricListItem } from "../services/rubricService";
 
 export function RubricUploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { session } = useAuth();
   const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
   const assignments = useAssignments(subjectId, { pageSize: MAX_PAGE_SIZE });
-  const rubrics = useRubrics(subjectId);
+  const rubrics = useRubrics();
   const uploadRubric = useUploadRubric();
+  const subjectsById = useMemo(
+    () => new Map((subjects.data?.items ?? []).map((subject) => [subject.id, subject])),
+    [subjects.data],
+  );
 
   function handleSubjectChange(nextSubjectId: string) {
     setSubjectId(nextSubjectId);
     setAssignmentId("");
   }
 
+  async function handleDownload(rubric: RubricListItem) {
+    setDownloadingId(rubric.id);
+    try {
+      await downloadRubricFile(rubric);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!file || !subjectId || !session) {
+    if (!file || !subjectId || !assignmentId || !session) {
       return;
     }
 
     await uploadRubric.mutateAsync({
       subjectId,
-      assignmentId: assignmentId || null,
+      assignmentId,
       file,
       lecturerId: session.user.id,
     });
@@ -58,13 +73,14 @@ export function RubricUploadPage() {
             ))}
           </SelectInput>
         </Field>
-        <Field label="Assignment (optional)">
+        <Field label="Assignment">
           <SelectInput
             value={assignmentId}
             onChange={(event) => setAssignmentId(event.target.value)}
             disabled={!subjectId}
+            required
           >
-            <option value="">Whole subject (no specific assignment)</option>
+            <option value="">Select assignment</option>
             {(assignments.data?.items ?? []).map((assignment) => (
               <option key={assignment.id} value={assignment.id}>
                 {assignment.title}
@@ -76,37 +92,48 @@ export function RubricUploadPage() {
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}
         {uploadRubric.error ? <FormMessage tone="error">{uploadRubric.error.message}</FormMessage> : null}
         {uploadRubric.isSuccess ? <FormMessage tone="success">Rubric uploaded and parsing started.</FormMessage> : null}
-        <Button type="submit" disabled={!file || !subjectId || uploadRubric.isPending}>
+        <Button type="submit" disabled={!file || !subjectId || !assignmentId || uploadRubric.isPending}>
           <ClipboardCheck aria-hidden="true" />
           {uploadRubric.isPending ? "Uploading..." : "Parse rubric"}
         </Button>
       </form>
-      {subjectId ? (
-        <div className="table-panel">
-          {rubrics.isLoading ? <StateBlock title="Loading rubrics" /> : null}
-          {(rubrics.data ?? []).length === 0 && !rubrics.isLoading ? (
-            <StateBlock title="No rubrics uploaded" detail="Upload a Word rubric to create criteria for this subject." />
-          ) : null}
-          {(rubrics.data ?? []).length > 0 ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Uploaded</th>
+      <div className="table-panel">
+        {rubrics.isLoading ? <StateBlock title="Loading rubrics" /> : null}
+        {(rubrics.data ?? []).length === 0 && !rubrics.isLoading ? (
+          <StateBlock title="No rubrics uploaded" detail="Upload a Word rubric to create criteria for a subject." />
+        ) : null}
+        {(rubrics.data ?? []).length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Subject</th>
+                <th>Uploaded</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(rubrics.data ?? []).map((rubric) => (
+                <tr key={rubric.id}>
+                  <td>{rubric.name}</td>
+                  <td>{subjectsById.get(rubric.subjectId)?.code ?? "-"}</td>
+                  <td>{new Date(rubric.createdAt).toLocaleString()}</td>
+                  <td>
+                    <Button
+                      variant="text"
+                      onClick={() => handleDownload(rubric)}
+                      disabled={downloadingId === rubric.id}
+                    >
+                      <Download aria-hidden="true" />
+                      {downloadingId === rubric.id ? "Downloading..." : "Download"}
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {(rubrics.data ?? []).map((rubric) => (
-                  <tr key={rubric.id}>
-                    <td>{rubric.name}</td>
-                    <td>{new Date(rubric.createdAt).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
-        </div>
-      ) : null}
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
     </section>
   );
 }

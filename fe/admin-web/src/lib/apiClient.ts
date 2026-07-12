@@ -87,3 +87,18 @@ export function apiPost<T>(path: string, body?: unknown): Promise<T> {
 export function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   return apiRequest<T>(path, { method: "POST", body: form });
 }
+
+export async function apiGetBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = getStoredSession()?.token;
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response));
+  }
+
+  return response.blob();
+}
