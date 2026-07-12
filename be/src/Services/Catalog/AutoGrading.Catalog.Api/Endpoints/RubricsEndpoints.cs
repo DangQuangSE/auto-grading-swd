@@ -2,7 +2,10 @@ using System.Security.Claims;
 using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
 using AutoGrading.Catalog.Api.Jobs;
+using AutoGrading.Common.Auth;
+using AutoGrading.Common.Messaging;
 using AutoGrading.Common.Storage;
+using AutoGrading.Contracts.Events;
 using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +53,15 @@ public static class RubricsEndpoints
         group.MapPost("/{id:guid}/retry-parsing", RetryParsingAsync)
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
 
+        group.MapPatch("/{id:guid}/criteria", UpdateCriteriaAsync)
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
+        group.MapPost("/{id:guid}/confirm", ConfirmRubricAsync)
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
+        group.MapPost("/{id:guid}/unlock", UnlockRubricAsync)
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
         return app;
     }
 
@@ -61,10 +73,9 @@ public static class RubricsEndpoints
         IBackgroundJobClient backgroundJobs,
         CancellationToken cancellationToken)
     {
-        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var isAdmin = user.IsInRole("admin");
+        var userId = user.GetUserId();
 
-        if (form.Scope == RubricScope.SchoolWide && !isAdmin)
+        if (form.Scope == RubricScope.SchoolWide && !user.IsInRole("admin"))
         {
             return Results.Forbid();
         }
@@ -73,7 +84,7 @@ public static class RubricsEndpoints
             ? null
             : await db.Rubrics.Include(r => r.Criteria).FirstOrDefaultAsync(r => r.AssignmentId == form.AssignmentId, cancellationToken);
 
-        if (existingRubric is not null && !isAdmin && existingRubric.LecturerId != userId)
+        if (existingRubric is not null && !IsAuthorized(existingRubric, user))
         {
             return Results.Forbid();
         }
@@ -126,20 +137,13 @@ public static class RubricsEndpoints
         IBackgroundJobClient backgroundJobs,
         CancellationToken cancellationToken)
     {
-        var rubric = await db.Rubrics.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
-        if (rubric is null)
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: false, cancellationToken);
+        if (error is not null)
         {
-            return Results.NotFound();
+            return error;
         }
 
-        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var isAdmin = user.IsInRole("admin");
-        if (!isAdmin && rubric.LecturerId != userId)
-        {
-            return Results.Forbid();
-        }
-
-        if (rubric.Status != RubricStatus.Parsing)
+        if (rubric!.Status != RubricStatus.Parsing)
         {
             return Results.Conflict($"Rubric {id} is '{rubric.Status}', not 'Parsing' — re-upload instead of retrying.");
         }
@@ -147,6 +151,145 @@ public static class RubricsEndpoints
         backgroundJobs.Enqueue<RubricParsingJob>(job => job.ExecuteAsync(rubric.Id, CancellationToken.None));
 
         return Results.Accepted();
+    }
+
+    private static async Task<IResult> UpdateCriteriaAsync(
+        Guid id,
+        List<UpdateCriterionRequest> request,
+        ClaimsPrincipal user,
+        CatalogDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: true, cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        if (rubric!.Status != RubricStatus.Draft)
+        {
+            return Results.Conflict($"Rubric {id} is '{rubric.Status}', not 'Draft' — unlock it before editing criteria.");
+        }
+
+        rubric.Criteria.Clear();
+        foreach (var criterion in request)
+        {
+            rubric.Criteria.Add(new RubricCriterion
+            {
+                RubricId = rubric.Id,
+                Name = criterion.Name,
+                Description = criterion.Description,
+                MaxScore = criterion.MaxScore,
+                OrderIndex = criterion.OrderIndex,
+            });
+        }
+
+        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
+        return saveError ?? Results.Ok(rubric.Criteria);
+    }
+
+    private static async Task<IResult> ConfirmRubricAsync(
+        Guid id,
+        ClaimsPrincipal user,
+        CatalogDbContext db,
+        IEventBus eventBus,
+        CancellationToken cancellationToken)
+    {
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: true, cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        try
+        {
+            rubric!.Confirm();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
+
+        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
+        if (saveError is not null)
+        {
+            return saveError;
+        }
+
+        await eventBus.PublishAsync(
+            new RubricConfirmed(
+                rubric.Id,
+                rubric.SubjectId,
+                rubric.AssignmentId,
+                rubric.Scope.ToString(),
+                rubric.Criteria
+                    .Select(c => new RubricConfirmedCriterion(c.Id, c.Name, c.Description, c.MaxScore, c.OrderIndex))
+                    .ToList()),
+            cancellationToken);
+
+        return Results.Ok(rubric);
+    }
+
+    private static async Task<IResult> UnlockRubricAsync(
+        Guid id,
+        ClaimsPrincipal user,
+        CatalogDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: false, cancellationToken);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        try
+        {
+            rubric!.Unlock();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
+
+        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
+        return saveError ?? Results.Ok(rubric);
+    }
+
+    /// <summary>Loads a rubric by id, translating "not found" and "not authorized" into the matching <see cref="IResult"/>;
+    /// callers get back a non-null <c>Rubric</c> when <c>Error</c> is null.</summary>
+    private static async Task<(Rubric? Rubric, IResult? Error)> LoadAuthorizedRubricAsync(
+        Guid id,
+        ClaimsPrincipal user,
+        CatalogDbContext db,
+        bool includeCriteria,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<Rubric> query = includeCriteria ? db.Rubrics.Include(r => r.Criteria) : db.Rubrics;
+        var rubric = await query.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (rubric is null)
+        {
+            return (null, Results.NotFound());
+        }
+
+        return IsAuthorized(rubric, user) ? (rubric, null) : (null, Results.Forbid());
+    }
+
+    /// <summary>A caller may act on a rubric if they're an admin, or the owning lecturer for a `Lecturer`-scoped rubric.
+    /// `SchoolWide` rubrics have no owning lecturer, so only admins may edit/confirm/unlock them.</summary>
+    private static bool IsAuthorized(Rubric rubric, ClaimsPrincipal user) =>
+        user.IsInRole("admin") || rubric.LecturerId == user.GetUserId();
+
+    private static async Task<IResult?> TrySaveChangesAsync(CatalogDbContext db, Guid rubricId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Results.Conflict($"Rubric {rubricId} was modified concurrently; reload and try again.");
+        }
     }
 }
 
@@ -158,3 +301,5 @@ public sealed class UploadRubricForm
     public IFormFile File { get; set; } = null!;
     public RubricScope Scope { get; set; } = RubricScope.Lecturer;
 }
+
+public sealed record UpdateCriterionRequest(string Name, string? Description, decimal MaxScore, int OrderIndex);

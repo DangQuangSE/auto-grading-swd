@@ -12,8 +12,8 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 <!-- Updated by cook automatically — do not edit manually -->
 
 **Last active:** 2026-07-12 (session)
-**Phase in progress:** phase-04-catalog-edit-confirm-unlock
-**Status:** Phases 1–3 complete (build green, catalog-api verified healthy with Hangfire wired up); starting Phase 4.
+**Phase in progress:** phase-06-grading-aigradingjob-update
+**Status:** Phases 1–5 complete (build green, catalog-api and grading-api both verified healthy); starting Phase 6.
 
 ### Decisions made this session
 - Registered `OpenRouterClient` in Catalog/Grading via `AddHttpClient<IOpenRouterClient, OpenRouterClient>()` (typed client), not a singleton as the phase file literally said — matches the existing working Grading pattern.
@@ -28,17 +28,26 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 - Re-upload preserves the existing rubric's `Scope`/`LecturerId` unchanged; the `Scope` field on the upload form only applies when creating a brand-new rubric row.
 - `retry-parsing` authorization for `SchoolWide` rubrics (null `LecturerId`) effectively requires `admin`, since there's no owning lecturer to match — consistent with `SchoolWide` creation already being admin-only.
 - Added `Hangfire.AspNetCore`/`Hangfire.SqlServer` to Catalog (reusing `CatalogDb` connection, same pattern as Grading) — Hangfire creates its own schema tables at runtime, no EF migration needed.
+- Added `Rubric.Confirm()` domain method mirroring `Unlock()` (guards `Status != Draft`, throws `InvalidOperationException`) during Phase 4's simplify pass — centralizes status-transition validation in the domain entity instead of duplicating `if (rubric.Status != X)` checks at the HTTP layer for actions that are genuine state transitions. Retry-parsing and criteria-edit guards stayed HTTP-layer checks since those actions don't themselves mutate `Status`.
+- Added `ClaimsPrincipal.GetUserId()` extension to `AutoGrading.Common.Auth` and a private `LoadAuthorizedRubricAsync`/`TrySaveChangesAsync` pair in `RubricsEndpoints` to deduplicate the load-or-404 / owner-or-admin-or-403 / concurrency-conflict-or-409 boilerplate repeated across 4 endpoints.
+- Deliberately did NOT remove `Include(r => r.Criteria)` before `rubric.Criteria.Clear()` in upload/edit-criteria (an efficiency-review suggestion) — EF Core needs the child rows loaded/tracked for `.Clear()` to emit `DELETE`s; removing it would silently orphan old `RubricCriterion` rows in the DB instead of saving a query.
+- Added `ConfigureHttpJsonOptions` with `JsonStringEnumConverter` to Catalog's `Program.cs` (Catalog lacked this even though `Status`/`Scope` enums have been API-response fields since Phase 2) — without it, enum fields would serialize as raw ints instead of readable strings, matching Grading's existing convention.
+- `RubricConfirmed` event carries `Scope` as a `string` (not a shared enum) to avoid coupling `AutoGrading.Contracts` to Catalog's domain-local `RubricScope` enum.
+- Local copy modeled as `LocalRubric` (unique-indexed on `RubricId`) + child `LocalRubricCriterion` collection, mirroring Catalog's `Rubric`/`RubricCriterion` split, rather than a single JSON-blob row — keeps Phase 6's `AiGradingJob` query simple (no JSON parsing needed).
+- Handler placed in a new `Handlers/` folder (not `Infrastructure/Handlers/` as the phase file suggested) — matches this service's existing flat top-level folder convention (`Data/`, `Domain/`, `Endpoints/`, `Jobs/`); `ArtifactsExtractedHandler` stayed in `Jobs/` since it enqueues a Hangfire job, this one doesn't.
+- **Found and fixed a real bug via the idempotency test, not a test-harness issue**: upserting new `LocalRubricCriterion` rows by adding them to an already-loaded (`Include`-fetched) parent's `.Criteria` navigation collection triggers an EF Core InMemory-provider defect (`DbUpdateConcurrencyException: entity does not exist in the store`) on the second delivery of the same event. Isolated via a throwaway repro test (adding via `parent.Criteria.Add(...)` fails; adding the identical entity via `db.LocalRubricCriteria.Add(...)` directly on the `DbSet` succeeds). Fixed the handler to use `db.LocalRubricCriteria.RemoveRange(...)`/`AddRange(...)` directly instead of mutating the navigation collection. Confirmed via docker logs that Catalog's own `Rubric.Criteria.Clear()`/`.Add()` pattern (Phases 3–4) works fine against the *real* SQL Server provider — this defect is InMemory-provider-specific, so Catalog's code did not need the same fix.
+- New `AutoGrading.Grading.Api.Tests` project uses `Microsoft.EntityFrameworkCore.InMemory` 8.0.10 (first use of this package in the repo); idempotency tests use a fresh `GradingDbContext` per simulated event delivery (matching `RabbitMqEventBus` creating a new DI scope per message) rather than reusing one context — reusing one masks/changes tracking behavior versus production.
 
 ### Next immediate action
-Implement Phase 4 (Catalog Edit, Confirm & Unlock Endpoints): `PATCH /rubrics/{id}/criteria`, `POST /rubrics/{id}/confirm`, `POST /rubrics/{id}/unlock`.
+Implement Phase 6 (Grading AiGradingJob Update): refactor `AiGradingJob` to read criteria from `LocalRubrics`/`LocalRubricCriteria` instead of the hardcoded placeholder; fail/retry if no confirmed local criteria exist for the assignment.
 
 ## Phases
 
 - [x] Phase 1: Shared AI Infrastructure — Move `OpenRouterClient` to `AutoGrading.Common`, add rubric-criteria extraction method
 - [x] Phase 2: Catalog Domain & Status Machine — Add `Status` (Parsing/Draft/Confirmed), `Scope` (Lecturer/SchoolWide), `LecturerId` to `Rubric` entity
 - [x] Phase 3: Catalog Upload & Background Job — Update upload endpoint to store file and enqueue async Hangfire extraction job
-- [ ] Phase 4: Catalog Edit, Confirm & Unlock Endpoints — Add criteria edit (Draft-only), confirm (Draft→Confirmed), unlock (Confirmed→Draft) endpoints; confirm publishes `RubricConfirmed` event
-- [ ] Phase 5: Event Contract & Grading Consumer — Define `RubricConfirmed` event contract, create event handler in Grading, add local criteria table to `GradingDbContext`, subscribe handler in `Program.cs`
+- [x] Phase 4: Catalog Edit, Confirm & Unlock Endpoints — Add criteria edit (Draft-only), confirm (Draft→Confirmed), unlock (Confirmed→Draft) endpoints; confirm publishes `RubricConfirmed` event
+- [x] Phase 5: Event Contract & Grading Consumer — Define `RubricConfirmed` event contract, create event handler in Grading, add local criteria table to `GradingDbContext`, subscribe handler in `Program.cs`
 - [ ] Phase 6: Grading AiGradingJob Update — Refactor `AiGradingJob` to read criteria from local table instead of placeholder; fail/retry if no confirmed criteria exist
 - [ ] Phase 7: Frontend UI — Add criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload; handle Parsing status indicator
 

@@ -5,6 +5,7 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Endpoints;
+using AutoGrading.Grading.Api.Handlers;
 using AutoGrading.Grading.Api.Jobs;
 using AutoGrading.Common.OpenRouter;
 using Hangfire;
@@ -30,6 +31,7 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<OpenRouterOpt
 
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();
+builder.Services.AddScoped<RubricConfirmedHandler>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -63,5 +65,6 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<ArtifactsExtracted, ArtifactsExtractedHandler>();
+eventBus.Subscribe<RubricConfirmed, RubricConfirmedHandler>();
 
 app.Run();

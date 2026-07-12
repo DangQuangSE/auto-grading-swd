@@ -9,6 +9,8 @@ public class GradingDbContext(DbContextOptions<GradingDbContext> options) : DbCo
     public DbSet<AiCriterionScore> AiCriterionScores => Set<AiCriterionScore>();
     public DbSet<FinalGrade> FinalGrades => Set<FinalGrade>();
     public DbSet<GradePublication> GradePublications => Set<GradePublication>();
+    public DbSet<LocalRubric> LocalRubrics => Set<LocalRubric>();
+    public DbSet<LocalRubricCriterion> LocalRubricCriteria => Set<LocalRubricCriterion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,22 @@ public class GradingDbContext(DbContextOptions<GradingDbContext> options) : DbCo
         modelBuilder.Entity<GradePublication>(entity =>
         {
             entity.ToTable("grade_publications");
+        });
+
+        modelBuilder.Entity<LocalRubric>(entity =>
+        {
+            entity.ToTable("local_rubrics");
+            entity.HasIndex(r => r.RubricId).IsUnique();
+            entity.HasMany(r => r.Criteria)
+                .WithOne(c => c.LocalRubric)
+                .HasForeignKey(c => c.LocalRubricId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LocalRubricCriterion>(entity =>
+        {
+            entity.ToTable("local_rubric_criteria");
+            entity.Property(c => c.MaxScore).HasPrecision(5, 2);
         });
     }
 }

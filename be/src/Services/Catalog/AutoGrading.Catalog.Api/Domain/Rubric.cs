@@ -28,4 +28,15 @@ public class Rubric
 
         Status = RubricStatus.Draft;
     }
+
+    /// <summary>Locks a reviewed draft so its criteria become the version used for grading.</summary>
+    public void Confirm()
+    {
+        if (Status != RubricStatus.Draft)
+        {
+            throw new InvalidOperationException($"Cannot confirm a rubric with status '{Status}'; only '{RubricStatus.Draft}' rubrics can be confirmed.");
+        }
+
+        Status = RubricStatus.Confirmed;
+    }
 }

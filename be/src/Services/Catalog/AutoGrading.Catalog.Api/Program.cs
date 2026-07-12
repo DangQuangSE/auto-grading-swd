@@ -20,6 +20,9 @@ builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration);
 builder.Services.AddOpenRouterClient(builder.Configuration);
 
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
+
 builder.Services.AddScoped<RubricParsingJob>();
 
 builder.Services.AddHangfire(config => config
