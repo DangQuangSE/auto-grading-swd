@@ -1,7 +1,10 @@
 using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Endpoints;
+using AutoGrading.Catalog.Api.Jobs;
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
+using AutoGrading.Common.Jobs;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +19,15 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration);
 builder.Services.AddOpenRouterClient(builder.Configuration);
+
+builder.Services.AddScoped<RubricParsingJob>();
+
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("CatalogDb")));
+builder.Services.AddHangfireServer();
 
 builder.Services.AddHealthChecks();
 
@@ -37,5 +49,9 @@ app.MapSubjectsEndpoints();
 app.MapAssignmentsEndpoints();
 app.MapRubricsEndpoints();
 app.MapHealthChecks("/health");
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new AllowAllDashboardAuthorizationFilter() }
+});
 
 app.Run();

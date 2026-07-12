@@ -41,6 +41,11 @@ public class CatalogDbContext : DbContext
             entity.ToTable("rubrics");
             entity.HasKey(r => r.Id);
             entity.Property(r => r.Name).IsRequired().HasMaxLength(256);
+            entity.Property(r => r.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.Scope).IsRequired().HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.RowVersion).IsRowVersion();
+            entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => r.Scope);
             entity.HasOne(r => r.Subject)
                 .WithMany()
                 .HasForeignKey(r => r.SubjectId)

@@ -12,23 +12,31 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 <!-- Updated by cook automatically — do not edit manually -->
 
 **Last active:** 2026-07-12 (session)
-**Phase in progress:** phase-02-catalog-domain-status-machine
-**Status:** Phase 1 complete (build + tests green, simplify applied); starting Phase 2.
+**Phase in progress:** phase-04-catalog-edit-confirm-unlock
+**Status:** Phases 1–3 complete (build green, catalog-api verified healthy with Hangfire wired up); starting Phase 4.
 
 ### Decisions made this session
 - Registered `OpenRouterClient` in Catalog/Grading via `AddHttpClient<IOpenRouterClient, OpenRouterClient>()` (typed client), not a singleton as the phase file literally said — matches the existing working Grading pattern.
 - Factored OpenRouter DI registration into a shared `AddOpenRouterClient(services, configuration)` extension in `AutoGrading.Common.Extensions.ServiceCollectionExtensions`, used by both services, during the mandatory Step 3.S simplify pass.
 - `ParseRubricCriteriaAsync` stub fallback (no API key) returns a single generic "Overall Quality" placeholder criterion — intentionally not derived from document text, since there's no non-AI way to do that.
 - Added `OpenRouter__*` env vars to `catalog-api` in `docker-compose.yml` and an `OpenRouter` section to Catalog's `appsettings.json`, mirroring Grading's existing setup (reuses the same `OPENROUTER_API_KEY` from `.env`).
+- `Rubric.Unlock()` throws `InvalidOperationException` if called when `Status != Confirmed` — Phase 4's unlock endpoint must check status first and map that to an HTTP error, not let it bubble as a 500.
+- Migration `AddRubricStatusScopeOwner` deletes all `rubrics`/`rubric_criteria` rows via raw SQL before adding the non-nullable `Status`/`Scope` columns (demo data, per plan risk note) — applied by starting the `catalog-api` container so it picks up `SA_PASSWORD` from `.env` internally, without me reading the secret directly.
+- `Status`/`Scope` persisted as `nvarchar(32)` string conversions (matches `AiGradingRunStatus` convention in Grading); `RowVersion` configured as EF Core's `.IsRowVersion()` concurrency token for Phase 4's confirm/unlock/edit endpoints.
+- Added `DocumentFormat.OpenXml` (new dependency, no prior docx-text-extraction existed anywhere in the repo) for `DocxTextExtractor` — a minimal static helper, not a full `IArtifactParser` implementation, since Catalog doesn't reference Submission's parsing abstractions.
+- Moved the `RubricParsed` event publish out of the upload endpoint and into `RubricParsingJob` (fires after criteria are actually persisted and `Status = Draft`) — the old immediate-publish-at-upload semantics no longer held once parsing became async; confirmed via grep that `RubricParsed` has zero existing subscribers, so this was safe to relocate.
+- Re-upload preserves the existing rubric's `Scope`/`LecturerId` unchanged; the `Scope` field on the upload form only applies when creating a brand-new rubric row.
+- `retry-parsing` authorization for `SchoolWide` rubrics (null `LecturerId`) effectively requires `admin`, since there's no owning lecturer to match — consistent with `SchoolWide` creation already being admin-only.
+- Added `Hangfire.AspNetCore`/`Hangfire.SqlServer` to Catalog (reusing `CatalogDb` connection, same pattern as Grading) — Hangfire creates its own schema tables at runtime, no EF migration needed.
 
 ### Next immediate action
-Implement Phase 2 (Catalog Domain & Status Machine): add `Status`/`Scope`/`LecturerId` to `Rubric` entity.
+Implement Phase 4 (Catalog Edit, Confirm & Unlock Endpoints): `PATCH /rubrics/{id}/criteria`, `POST /rubrics/{id}/confirm`, `POST /rubrics/{id}/unlock`.
 
 ## Phases
 
 - [x] Phase 1: Shared AI Infrastructure — Move `OpenRouterClient` to `AutoGrading.Common`, add rubric-criteria extraction method
-- [ ] Phase 2: Catalog Domain & Status Machine — Add `Status` (Parsing/Draft/Confirmed), `Scope` (Lecturer/SchoolWide), `LecturerId` to `Rubric` entity
-- [ ] Phase 3: Catalog Upload & Background Job — Update upload endpoint to store file and enqueue async Hangfire extraction job
+- [x] Phase 2: Catalog Domain & Status Machine — Add `Status` (Parsing/Draft/Confirmed), `Scope` (Lecturer/SchoolWide), `LecturerId` to `Rubric` entity
+- [x] Phase 3: Catalog Upload & Background Job — Update upload endpoint to store file and enqueue async Hangfire extraction job
 - [ ] Phase 4: Catalog Edit, Confirm & Unlock Endpoints — Add criteria edit (Draft-only), confirm (Draft→Confirmed), unlock (Confirmed→Draft) endpoints; confirm publishes `RubricConfirmed` event
 - [ ] Phase 5: Event Contract & Grading Consumer — Define `RubricConfirmed` event contract, create event handler in Grading, add local criteria table to `GradingDbContext`, subscribe handler in `Program.cs`
 - [ ] Phase 6: Grading AiGradingJob Update — Refactor `AiGradingJob` to read criteria from local table instead of placeholder; fail/retry if no confirmed criteria exist
