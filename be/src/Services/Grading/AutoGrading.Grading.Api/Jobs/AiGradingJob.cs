@@ -3,13 +3,14 @@ using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
 using AutoGrading.Common.OpenRouter;
+using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Grading.Api.Jobs;
 
 /// <summary>
 /// Hangfire background job: runs AI grading for a submission whose artifacts have been
-/// extracted. Rubric criteria are not yet fetched cross-service (deferred to a later sprint),
-/// so a single placeholder "Overall Quality" criterion is used until Catalog integration lands.
+/// extracted, against the assignment's confirmed rubric criteria (Grading's local copy,
+/// populated by RubricConfirmedHandler). Fails/retries if no confirmed criteria exist yet.
 /// </summary>
 public sealed class AiGradingJob(
     GradingDbContext db,
@@ -17,7 +18,7 @@ public sealed class AiGradingJob(
     OpenRouterOptions openRouterOptions,
     IEventBus eventBus)
 {
-    public async Task ExecuteAsync(Guid submissionId, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(Guid submissionId, Guid assignmentId, CancellationToken cancellationToken = default)
     {
         var run = new AiGradingRun
         {
@@ -29,13 +30,22 @@ public sealed class AiGradingJob(
         db.AiGradingRuns.Add(run);
         await db.SaveChangesAsync(cancellationToken);
 
-        var criteria = new[]
-        {
-            new GradingCriterionInput(Guid.NewGuid(), "Overall Quality", 100m),
-        };
-
         try
         {
+            var localRubric = await db.LocalRubrics
+                .Include(r => r.Criteria)
+                .FirstOrDefaultAsync(r => r.AssignmentId == assignmentId, cancellationToken);
+
+            if (localRubric is null || localRubric.Criteria.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"No confirmed rubric criteria found for assignment {assignmentId}. Confirm the rubric in Catalog first.");
+            }
+
+            var criteria = localRubric.Criteria
+                .Select(c => new GradingCriterionInput(c.RubricCriterionId, c.Name, c.MaxScore))
+                .ToList();
+
             var results = await openRouterClient.GradeAsync(
                 reportContent: string.Empty,
                 diagramContent: string.Empty,

@@ -12,8 +12,8 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 <!-- Updated by cook automatically — do not edit manually -->
 
 **Last active:** 2026-07-12 (session)
-**Phase in progress:** phase-06-grading-aigradingjob-update
-**Status:** Phases 1–5 complete (build green, catalog-api and grading-api both verified healthy); starting Phase 6.
+**Phase in progress:** phase-07-frontend-ui
+**Status:** Phases 1–6 complete (build green, catalog-api/grading-api/submission-api all verified healthy); starting Phase 7 (final phase).
 
 ### Decisions made this session
 - Registered `OpenRouterClient` in Catalog/Grading via `AddHttpClient<IOpenRouterClient, OpenRouterClient>()` (typed client), not a singleton as the phase file literally said — matches the existing working Grading pattern.
@@ -37,9 +37,13 @@ This plan replaces the hardcoded single "Overall Quality" placeholder criterion 
 - Handler placed in a new `Handlers/` folder (not `Infrastructure/Handlers/` as the phase file suggested) — matches this service's existing flat top-level folder convention (`Data/`, `Domain/`, `Endpoints/`, `Jobs/`); `ArtifactsExtractedHandler` stayed in `Jobs/` since it enqueues a Hangfire job, this one doesn't.
 - **Found and fixed a real bug via the idempotency test, not a test-harness issue**: upserting new `LocalRubricCriterion` rows by adding them to an already-loaded (`Include`-fetched) parent's `.Criteria` navigation collection triggers an EF Core InMemory-provider defect (`DbUpdateConcurrencyException: entity does not exist in the store`) on the second delivery of the same event. Isolated via a throwaway repro test (adding via `parent.Criteria.Add(...)` fails; adding the identical entity via `db.LocalRubricCriteria.Add(...)` directly on the `DbSet` succeeds). Fixed the handler to use `db.LocalRubricCriteria.RemoveRange(...)`/`AddRange(...)` directly instead of mutating the navigation collection. Confirmed via docker logs that Catalog's own `Rubric.Criteria.Clear()`/`.Add()` pattern (Phases 3–4) works fine against the *real* SQL Server provider — this defect is InMemory-provider-specific, so Catalog's code did not need the same fix.
 - New `AutoGrading.Grading.Api.Tests` project uses `Microsoft.EntityFrameworkCore.InMemory` 8.0.10 (first use of this package in the repo); idempotency tests use a fresh `GradingDbContext` per simulated event delivery (matching `RabbitMqEventBus` creating a new DI scope per message) rather than reusing one context — reusing one masks/changes tracking behavior versus production.
+- **Phase 6 blocker discovered and resolved**: `AiGradingJob` needs to know a submission's `AssignmentId` to look up its confirmed rubric, but neither `AiGradingJob` nor the `ArtifactsExtracted` event it's triggered by carried one — this wasn't called out in any phase file. Fixed by adding `AssignmentId` to the `ArtifactsExtracted` event contract (Submission service's `Submission` entity already has it) and threading it through `ExtractionJob` → `ArtifactsExtractedHandler` → `AiGradingJob.ExecuteAsync(submissionId, assignmentId, ...)`. Only Submission (publisher) and Grading (consumer) reference this event, so it was safe to change the shape directly rather than version it.
+- `AiGradingJob` now looks up `LocalRubrics` by `AssignmentId` (not `RubricId`) — matches how the job is invoked (per-assignment submissions), consistent with `LocalRubric.AssignmentId` already being populated by `RubricConfirmedHandler` from the event.
+- Did NOT touch the pre-existing `reportContent`/`diagramContent: string.Empty` stub in `AiGradingJob` — that's a separate, already-existing gap (submission content isn't wired to the grading prompt at all) unrelated to rubric criteria and out of scope for this plan.
+- Added `AiGradingJobTests` (no-criteria-throws-and-fails-run; criteria-exist-grades-and-publishes) using the same real `OpenRouterClient` in its no-API-key stub mode rather than a mock, since that's already a first-class supported code path.
 
 ### Next immediate action
-Implement Phase 6 (Grading AiGradingJob Update): refactor `AiGradingJob` to read criteria from `LocalRubrics`/`LocalRubricCriteria` instead of the hardcoded placeholder; fail/retry if no confirmed local criteria exist for the assignment.
+Implement Phase 7 (Frontend UI, final phase): criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload, Parsing status indicator.
 
 ## Phases
 
@@ -48,7 +52,7 @@ Implement Phase 6 (Grading AiGradingJob Update): refactor `AiGradingJob` to read
 - [x] Phase 3: Catalog Upload & Background Job — Update upload endpoint to store file and enqueue async Hangfire extraction job
 - [x] Phase 4: Catalog Edit, Confirm & Unlock Endpoints — Add criteria edit (Draft-only), confirm (Draft→Confirmed), unlock (Confirmed→Draft) endpoints; confirm publishes `RubricConfirmed` event
 - [x] Phase 5: Event Contract & Grading Consumer — Define `RubricConfirmed` event contract, create event handler in Grading, add local criteria table to `GradingDbContext`, subscribe handler in `Program.cs`
-- [ ] Phase 6: Grading AiGradingJob Update — Refactor `AiGradingJob` to read criteria from local table instead of placeholder; fail/retry if no confirmed criteria exist
+- [x] Phase 6: Grading AiGradingJob Update — Refactor `AiGradingJob` to read criteria from local table instead of placeholder; fail/retry if no confirmed criteria exist
 - [ ] Phase 7: Frontend UI — Add criteria preview/edit screen, confirm/unlock buttons, scope selector on rubric upload; handle Parsing status indicator
 
 ## Research Summary
