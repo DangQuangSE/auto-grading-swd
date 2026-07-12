@@ -1,5 +1,7 @@
 import { apiGet } from "../lib/apiClient";
 
+const MAX_PAGE_SIZE = 100;
+
 type Subject = {
   id: string;
   code: string;
@@ -16,12 +18,21 @@ type Assignment = {
   createdAt: string;
 };
 
+type PagedResult<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
 export async function listSubjects() {
-  const subjects = await apiGet<Subject[]>("/catalog/subjects");
-  return [...subjects].sort((a, b) => a.code.localeCompare(b.code));
+  const result = await apiGet<PagedResult<Subject>>(`/catalog/subjects?pageSize=${MAX_PAGE_SIZE}`);
+  return [...result.items].sort((a, b) => a.code.localeCompare(b.code));
 }
 
 export async function listAssignments(subjectId: string) {
-  const assignments = await apiGet<Assignment[]>(`/catalog/assignments?subjectId=${subjectId}`);
-  return [...assignments].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const result = await apiGet<PagedResult<Assignment>>(
+    `/catalog/assignments?subjectId=${subjectId}&pageSize=${MAX_PAGE_SIZE}`,
+  );
+  return [...result.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

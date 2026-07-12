@@ -28,13 +28,13 @@ export function RubricUploadPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!file || !subjectId || !session) {
+    if (!file || !subjectId || !assignmentId || !session) {
       return;
     }
 
     await uploadRubric.mutateAsync({
       subjectId,
-      assignmentId: assignmentId || null,
+      assignmentId,
       file,
       lecturerId: session.user.id,
     });
@@ -58,13 +58,14 @@ export function RubricUploadPage() {
             ))}
           </SelectInput>
         </Field>
-        <Field label="Assignment (optional)">
+        <Field label="Assignment">
           <SelectInput
             value={assignmentId}
             onChange={(event) => setAssignmentId(event.target.value)}
             disabled={!subjectId}
+            required
           >
-            <option value="">Whole subject (no specific assignment)</option>
+            <option value="">Select assignment</option>
             {(assignments.data?.items ?? []).map((assignment) => (
               <option key={assignment.id} value={assignment.id}>
                 {assignment.title}
@@ -76,7 +77,7 @@ export function RubricUploadPage() {
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}
         {uploadRubric.error ? <FormMessage tone="error">{uploadRubric.error.message}</FormMessage> : null}
         {uploadRubric.isSuccess ? <FormMessage tone="success">Rubric uploaded and parsing started.</FormMessage> : null}
-        <Button type="submit" disabled={!file || !subjectId || uploadRubric.isPending}>
+        <Button type="submit" disabled={!file || !subjectId || !assignmentId || uploadRubric.isPending}>
           <ClipboardCheck aria-hidden="true" />
           {uploadRubric.isPending ? "Uploading..." : "Parse rubric"}
         </Button>
