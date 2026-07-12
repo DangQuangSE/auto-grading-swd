@@ -1,5 +1,6 @@
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
+using AutoGrading.Grading.Api.Clients;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
 using AutoGrading.Common.OpenRouter;
@@ -8,17 +9,19 @@ using Microsoft.EntityFrameworkCore;
 namespace AutoGrading.Grading.Api.Jobs;
 
 /// <summary>
-/// Hangfire background job: runs AI grading for a submission whose artifacts have been
-/// extracted, against the assignment's confirmed rubric criteria (Grading's local copy,
-/// populated by RubricConfirmedHandler). Fails/retries if no confirmed criteria exist yet.
+/// Hangfire background job: runs AI grading for a submission whose artifacts have been extracted,
+/// fetching the real lecturer-defined rubric criteria from Catalog and the real extracted
+/// report/diagram content from Submission before calling the LLM.
 /// </summary>
 public sealed class AiGradingJob(
     GradingDbContext db,
+    ICatalogApiClient catalogApiClient,
+    ISubmissionApiClient submissionApiClient,
     IOpenRouterClient openRouterClient,
     OpenRouterOptions openRouterOptions,
     IEventBus eventBus)
 {
-    public async Task ExecuteAsync(Guid submissionId, Guid assignmentId, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(Guid submissionId, string? assignmentDescriptionOverride = null, CancellationToken cancellationToken = default)
     {
         var run = new AiGradingRun
         {
@@ -32,24 +35,30 @@ public sealed class AiGradingJob(
 
         try
         {
-            var localRubric = await db.LocalRubrics
-                .Include(r => r.Criteria)
-                .FirstOrDefaultAsync(r => r.AssignmentId == assignmentId, cancellationToken);
+            var submission = await submissionApiClient.GetSubmissionAsync(submissionId, cancellationToken)
+                ?? throw new InvalidOperationException($"Submission {submissionId} was not found.");
 
-            if (localRubric is null || localRubric.Criteria.Count == 0)
+            var rubricCriteria = await catalogApiClient.GetCriteriaForAssignmentAsync(submission.AssignmentId, cancellationToken);
+            if (rubricCriteria.Count == 0)
             {
-                throw new InvalidOperationException(
-                    $"No confirmed rubric criteria found for assignment {assignmentId}. Confirm the rubric in Catalog first.");
+                throw new InvalidOperationException($"No rubric criteria found for assignment {submission.AssignmentId}.");
             }
 
-            var criteria = localRubric.Criteria
-                .Select(c => new GradingCriterionInput(c.RubricCriterionId, c.Name, c.MaxScore))
-                .ToList();
+            var assignment = await catalogApiClient.GetAssignmentAsync(submission.AssignmentId, cancellationToken);
+            var assignmentDescription = assignmentDescriptionOverride ?? assignment?.Description;
+
+            var criteria = rubricCriteria
+                .Select(c => new GradingCriterionInput(c.Id, c.Name, c.MaxScore))
+                .ToArray();
+
+            var reportContent = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Report)?.Content ?? string.Empty;
+            var diagramContent = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Diagram)?.Content ?? string.Empty;
 
             var results = await openRouterClient.GradeAsync(
-                reportContent: string.Empty,
-                diagramContent: string.Empty,
+                reportContent: reportContent,
+                diagramContent: diagramContent,
                 criteria: criteria,
+                assignmentDescription: assignmentDescription,
                 cancellationToken: cancellationToken);
 
             foreach (var result in results)

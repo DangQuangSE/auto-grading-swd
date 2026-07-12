@@ -61,9 +61,11 @@ public static class SubmissionsEndpoints
             await storage.UploadAsync(reportKey, stream, form.ReportFile.ContentType, cancellationToken);
         }
 
-        var diagramKey = $"submissions/{Guid.NewGuid()}-{form.DiagramFile.FileName}";
-        await using (var stream = form.DiagramFile.OpenReadStream())
+        string? diagramKey = null;
+        if (form.DiagramFile is not null)
         {
+            diagramKey = $"submissions/{Guid.NewGuid()}-{form.DiagramFile.FileName}";
+            await using var stream = form.DiagramFile.OpenReadStream();
             await storage.UploadAsync(diagramKey, stream, form.DiagramFile.ContentType, cancellationToken);
         }
 
@@ -92,5 +94,5 @@ public sealed class UploadSubmissionForm
     public Guid AssignmentId { get; set; }
     public Guid StudentId { get; set; }
     public IFormFile ReportFile { get; set; } = null!;
-    public IFormFile DiagramFile { get; set; } = null!;
+    public IFormFile? DiagramFile { get; set; }
 }

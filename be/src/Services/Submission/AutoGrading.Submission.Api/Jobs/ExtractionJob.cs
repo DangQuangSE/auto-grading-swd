@@ -38,14 +38,19 @@ public sealed class ExtractionJob(
 
         try
         {
-            foreach (var (kind, objectKey) in new[]
-                     {
-                         (ArtifactKind.Report, submission.ReportObjectKey),
-                         (ArtifactKind.Diagram, submission.DiagramObjectKey),
-                     })
+            var artifacts = new List<(ArtifactKind Kind, string ObjectKey)>
+            {
+                (ArtifactKind.Report, submission.ReportObjectKey),
+            };
+            if (!string.IsNullOrEmpty(submission.DiagramObjectKey))
+            {
+                artifacts.Add((ArtifactKind.Diagram, submission.DiagramObjectKey));
+            }
+
+            foreach (var (kind, objectKey) in artifacts)
             {
                 await using var stream = await storage.DownloadAsync(objectKey, cancellationToken);
-                var parsed = await parser.ParseAsync(stream, objectKey, cancellationToken);
+                var parsed = await parser.ParseAsync(kind, stream, objectKey, cancellationToken);
 
                 db.ExtractedArtifacts.Add(new ExtractedArtifact
                 {

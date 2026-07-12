@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Messaging;
@@ -20,6 +21,7 @@ builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddScoped<UserRegisteredConsumer>();
 builder.Services.AddScoped<AiGradingCompletedConsumer>();
 builder.Services.AddScoped<GradePublishedConsumer>();
+builder.Services.AddScoped<RubricParsedConsumer>();
 
 builder.Services.AddHealthChecks();
 
@@ -44,6 +46,32 @@ app.MapGet("/notifications", async (Guid userId, NotificationDbContext db, Cance
             .ToListAsync(ct)))
     .RequireAuthorization();
 
+app.MapGet("/notifications/unread-count", async (ClaimsPrincipal user, NotificationDbContext db, CancellationToken ct) =>
+    {
+        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var count = await db.Notifications.AsNoTracking()
+            .CountAsync(n => n.UserId == userId && !n.IsRead, ct);
+
+        return Results.Ok(new { unreadCount = count });
+    })
+    .RequireAuthorization();
+
+app.MapDelete("/notifications/{id:guid}", async (Guid id, ClaimsPrincipal user, NotificationDbContext db, CancellationToken ct) =>
+    {
+        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var notification = await db.Notifications.FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId, ct);
+        if (notification is null)
+        {
+            return Results.NotFound();
+        }
+
+        db.Notifications.Remove(notification);
+        await db.SaveChangesAsync(ct);
+
+        return Results.NoContent();
+    })
+    .RequireAuthorization();
+
 app.MapGet("/audit-events", async (NotificationDbContext db, CancellationToken ct) =>
         Results.Ok(await db.AuditEvents.AsNoTracking()
             .OrderByDescending(a => a.OccurredAt)
@@ -57,5 +85,6 @@ var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<UserRegistered, UserRegisteredConsumer>();
 eventBus.Subscribe<AiGradingCompleted, AiGradingCompletedConsumer>();
 eventBus.Subscribe<GradePublished, GradePublishedConsumer>();
+eventBus.Subscribe<RubricParsed, RubricParsedConsumer>();
 
 app.Run();

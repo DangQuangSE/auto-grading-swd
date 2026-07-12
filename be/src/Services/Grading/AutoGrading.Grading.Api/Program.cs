@@ -3,6 +3,7 @@ using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Jobs;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
+using AutoGrading.Grading.Api.Clients;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Endpoints;
 using AutoGrading.Grading.Api.Handlers;
@@ -21,6 +22,7 @@ builder.Services.AddDbContext<GradingDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("GradingDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddJwtTokenGenerator(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -28,6 +30,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddOpenRouterClient(builder.Configuration);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value);
+
+builder.Services.Configure<ServicesOptions>(builder.Configuration.GetSection(ServicesOptions.SectionName));
+var servicesOptions = builder.Configuration.GetSection(ServicesOptions.SectionName).Get<ServicesOptions>() ?? new ServicesOptions();
+
+builder.Services.AddTransient<ServiceAuthHandler>();
+builder.Services.AddHttpClient<ICatalogApiClient, CatalogApiClient>(client =>
+        client.BaseAddress = new Uri(servicesOptions.CatalogApiBaseUrl))
+    .AddHttpMessageHandler<ServiceAuthHandler>();
+builder.Services.AddHttpClient<ISubmissionApiClient, SubmissionApiClient>(client =>
+        client.BaseAddress = new Uri(servicesOptions.SubmissionApiBaseUrl))
+    .AddHttpMessageHandler<ServiceAuthHandler>();
 
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();

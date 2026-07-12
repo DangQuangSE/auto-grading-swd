@@ -7,7 +7,7 @@ export type SubmissionRecord = {
   assignmentId: string;
   studentId: string;
   reportObjectKey: string;
-  diagramObjectKey: string;
+  diagramObjectKey?: string | null;
   state: GradingState;
   createdAt: string;
   updatedAt: string;
@@ -17,16 +17,20 @@ export async function createSubmission(params: {
   assignmentId: string;
   studentId: string;
   reportFile: File;
-  diagramFile: File;
+  diagramFile?: File;
 }) {
   assertValidFileExtension(params.reportFile.name, [".docx"]);
-  assertValidFileExtension(params.diagramFile.name, [".drawio"]);
+  if (params.diagramFile) {
+    assertValidFileExtension(params.diagramFile.name, [".drawio"]);
+  }
 
   const form = new FormData();
   form.set("AssignmentId", params.assignmentId);
   form.set("StudentId", params.studentId);
   form.set("ReportFile", params.reportFile);
-  form.set("DiagramFile", params.diagramFile);
+  if (params.diagramFile) {
+    form.set("DiagramFile", params.diagramFile);
+  }
 
   return apiPostForm<SubmissionRecord>("/submissions/submissions/upload", form);
 }

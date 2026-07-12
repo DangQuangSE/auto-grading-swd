@@ -176,11 +176,15 @@ services:
       OpenRouter__ApiKey: ${OPENROUTER_API_KEY}
       OpenRouter__Model: deepseek/deepseek-chat
       OpenRouter__BaseUrl: https://openrouter.ai/api/v1
+      Services__CatalogApiBaseUrl: http://catalog-api:8080
+      Services__SubmissionApiBaseUrl: http://submission-api:8080
     ports:
       - "5004:8080"
     depends_on:
       sqlserver: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+      catalog-api: { condition: service_healthy }
+      submission-api: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s

@@ -24,7 +24,7 @@ export function RubricUploadPage() {
   const isAdmin = session?.user.role === "admin";
   const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
   const assignments = useAssignments(subjectId, { pageSize: MAX_PAGE_SIZE });
-  const rubrics = useRubrics();
+  const rubrics = useRubrics(subjectId, assignmentId || null);
   const uploadRubric = useUploadRubric();
   const subjectsById = useMemo(
     () => new Map((subjects.data?.items ?? []).map((subject) => [subject.id, subject])),
@@ -124,7 +124,7 @@ export function RubricUploadPage() {
         </fieldset>
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}
         {uploadRubric.error ? <FormMessage tone="error">{uploadRubric.error.message}</FormMessage> : null}
-        {uploadRubric.isSuccess ? <FormMessage tone="success">Rubric uploaded and parsing started.</FormMessage> : null}
+        {uploadRubric.isSuccess ? <FormMessage tone="success">Rubric uploaded and parsed successfully.</FormMessage> : null}
         <Button type="submit" disabled={!file || !subjectId || !assignmentId || uploadRubric.isPending}>
           <ClipboardCheck aria-hidden="true" />
           {uploadRubric.isPending ? "Uploading..." : "Parse rubric"}

@@ -4,6 +4,7 @@ using AutoGrading.Catalog.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AutoGrading.Catalog.Api.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    partial class CatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260712021924_AddRubricCriterionCode")]
+    partial class AddRubricCriterionCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,30 +55,6 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.ToTable("assignments", (string)null);
                 });
 
-            modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Class", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("LecturerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LecturerId");
-
-                    b.ToTable("classes", (string)null);
-                });
-
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Rubric", b =>
                 {
                     b.Property<Guid>("Id")
@@ -91,29 +70,10 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.Property<string>("FileObjectKey")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("LecturerId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("Scope")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
 
                     b.Property<Guid>("SubjectId")
                         .HasColumnType("uniqueidentifier");
@@ -121,10 +81,6 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssignmentId");
-
-                    b.HasIndex("Scope");
-
-                    b.HasIndex("Status");
 
                     b.HasIndex("SubjectId");
 

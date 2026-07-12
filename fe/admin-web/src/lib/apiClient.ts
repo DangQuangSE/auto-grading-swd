@@ -42,7 +42,11 @@ export function clearStoredSession(): void {
 
 async function readErrorMessage(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { message?: string; title?: string };
+    const body = (await response.json()) as { message?: string; title?: string; errors?: string[] };
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      return body.errors.join("\n");
+    }
+
     return body.message ?? body.title ?? response.statusText;
   } catch {
     return response.statusText;
