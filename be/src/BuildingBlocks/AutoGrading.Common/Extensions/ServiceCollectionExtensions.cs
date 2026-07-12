@@ -1,5 +1,6 @@
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Messaging;
+using AutoGrading.Common.OpenRouter;
 using AutoGrading.Common.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,15 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.AddSingleton<JwtTokenGenerator>();
+
+        return services;
+    }
+
+    /// <summary>Registers the shared OpenRouter AI client, bound to the "OpenRouter" config section.</summary>
+    public static IServiceCollection AddOpenRouterClient(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<OpenRouterOptions>(configuration.GetSection(OpenRouterOptions.SectionName));
+        services.AddHttpClient<IOpenRouterClient, OpenRouterClient>();
 
         return services;
     }

@@ -104,6 +104,9 @@ services:
       Minio__SecretKey: ${MINIO_ROOT_PASSWORD}
       Minio__UseSsl: "false"
       Minio__BucketName: autograding
+      OpenRouter__ApiKey: ${OPENROUTER_API_KEY}
+      OpenRouter__Model: deepseek/deepseek-chat
+      OpenRouter__BaseUrl: https://openrouter.ai/api/v1
     ports:
       - "5002:8080"
     depends_on:

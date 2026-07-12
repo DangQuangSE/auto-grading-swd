@@ -1,4 +1,4 @@
-namespace AutoGrading.Grading.Api.OpenRouter;
+namespace AutoGrading.Common.OpenRouter;
 
 public class OpenRouterOptions
 {

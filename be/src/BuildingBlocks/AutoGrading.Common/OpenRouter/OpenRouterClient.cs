@@ -1,0 +1,240 @@
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+
+namespace AutoGrading.Common.OpenRouter;
+
+public record GradingCriterionInput(Guid RubricCriterionId, string Name, decimal MaxScore);
+
+public record GradingCriterionResult(
+    Guid RubricCriterionId,
+    decimal MaxScore,
+    decimal SuggestedScore,
+    string? Deductions,
+    string? Evidence,
+    string? Comment,
+    decimal? Confidence);
+
+public record ExtractedRubricCriterion(string Name, string? Description, decimal MaxScore, int Order);
+
+public interface IOpenRouterClient
+{
+    Task<IReadOnlyList<GradingCriterionResult>> GradeAsync(
+        string reportContent,
+        string diagramContent,
+        IReadOnlyList<GradingCriterionInput> criteria,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ExtractedRubricCriterion>> ParseRubricCriteriaAsync(
+        string documentText,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Calls OpenRouter for AI grading and rubric-criteria extraction when an API key is configured;
+/// otherwise falls back to a deterministic stub so callers are exercisable without external credentials.
+/// </summary>
+public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions> options) : IOpenRouterClient
+{
+    private readonly OpenRouterOptions _options = options.Value;
+
+    public async Task<IReadOnlyList<GradingCriterionResult>> GradeAsync(
+        string reportContent,
+        string diagramContent,
+        IReadOnlyList<GradingCriterionInput> criteria,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            return StubGrade(criteria);
+        }
+
+        var prompt = BuildGradingPrompt(reportContent, diagramContent, criteria);
+        var payload = await SendChatCompletionAsync(prompt, cancellationToken);
+        var parsed = TryParseGradingResponse(payload, criteria);
+
+        return parsed ?? StubGrade(criteria);
+    }
+
+    public async Task<IReadOnlyList<ExtractedRubricCriterion>> ParseRubricCriteriaAsync(
+        string documentText,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            return StubRubricCriteria();
+        }
+
+        var prompt = BuildRubricExtractionPrompt(documentText);
+        var payload = await SendChatCompletionAsync(prompt, cancellationToken);
+        var parsed = TryParseRubricCriteriaResponse(payload);
+
+        return parsed ?? StubRubricCriteria();
+    }
+
+    private async Task<string> SendChatCompletionAsync(string prompt, CancellationToken cancellationToken)
+    {
+        var requestBody = new
+        {
+            model = _options.Model,
+            messages = new[]
+            {
+                new { role = "system", content = "You are an assistant that returns strict JSON and nothing else." },
+                new { role = "user", content = prompt },
+            },
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    private static string BuildGradingPrompt(string reportContent, string diagramContent, IReadOnlyList<GradingCriterionInput> criteria)
+    {
+        var criteriaText = string.Join(
+            "\n",
+            criteria.Select(c => $"- {c.RubricCriterionId}: {c.Name} (max {c.MaxScore})"));
+
+        return $"""
+                Grade the following submission against the rubric criteria below.
+                Respond with a JSON array, one object per criterion, each with fields:
+                rubricCriterionId, suggestedScore, deductions, evidence, comment, confidence (0-1).
+
+                Rubric criteria:
+                {criteriaText}
+
+                Report content:
+                {reportContent}
+
+                Diagram content:
+                {diagramContent}
+                """;
+    }
+
+    private static string BuildRubricExtractionPrompt(string documentText)
+    {
+        return $"""
+                Extract the grading criteria from the rubric document below.
+                Respond with a JSON array, one object per criterion, each with fields:
+                name (string), description (string, may be empty), maxScore (number), order (integer, 0-based).
+
+                Rubric document:
+                {documentText}
+                """;
+    }
+
+    private static IReadOnlyList<GradingCriterionResult>? TryParseGradingResponse(string payload, IReadOnlyList<GradingCriterionInput> criteria)
+    {
+        var criteriaById = criteria.ToDictionary(c => c.RubricCriterionId);
+
+        return TryParseJsonArray<GradingCriterionResult>(payload, item =>
+        {
+            var criterionId = Guid.Parse(item.GetProperty("rubricCriterionId").GetString()!);
+            if (!criteriaById.TryGetValue(criterionId, out var criterion))
+            {
+                return null;
+            }
+
+            return new GradingCriterionResult(
+                criterionId,
+                criterion.MaxScore,
+                item.GetProperty("suggestedScore").GetDecimal(),
+                item.TryGetProperty("deductions", out var d) ? d.GetString() : null,
+                item.TryGetProperty("evidence", out var e) ? e.GetString() : null,
+                item.TryGetProperty("comment", out var c) ? c.GetString() : null,
+                item.TryGetProperty("confidence", out var conf) ? conf.GetDecimal() : null);
+        });
+    }
+
+    internal static IReadOnlyList<ExtractedRubricCriterion>? TryParseRubricCriteriaResponse(string payload)
+    {
+        var order = 0;
+
+        return TryParseJsonArray<ExtractedRubricCriterion>(payload, item =>
+        {
+            if (!item.TryGetProperty("name", out var nameProp) || nameProp.GetString() is not { Length: > 0 } name)
+            {
+                return null;
+            }
+
+            if (!item.TryGetProperty("maxScore", out var maxScoreProp) || !maxScoreProp.TryGetDecimal(out var maxScore))
+            {
+                return null;
+            }
+
+            var description = item.TryGetProperty("description", out var descProp) ? descProp.GetString() : null;
+            var itemOrder = item.TryGetProperty("order", out var orderProp) && orderProp.TryGetInt32(out var parsedOrder)
+                ? parsedOrder
+                : order;
+
+            order++;
+            return new ExtractedRubricCriterion(name, description, maxScore, itemOrder);
+        });
+    }
+
+    /// <summary>Shared defensive-parse skeleton: extracts the AI message content, parses it as a JSON array,
+    /// and runs <paramref name="itemParser"/> per element, skipping items it rejects (returns null for).</summary>
+    private static IReadOnlyList<T>? TryParseJsonArray<T>(string payload, Func<JsonElement, T?> itemParser)
+        where T : class
+    {
+        try
+        {
+            var content = ExtractMessageContent(payload);
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return null;
+            }
+
+            using var contentDoc = JsonDocument.Parse(content);
+            var results = new List<T>();
+
+            foreach (var item in contentDoc.RootElement.EnumerateArray())
+            {
+                var parsed = itemParser(item);
+                if (parsed is not null)
+                {
+                    results.Add(parsed);
+                }
+            }
+
+            return results.Count > 0 ? results : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractMessageContent(string payload)
+    {
+        using var doc = JsonDocument.Parse(payload);
+
+        return doc.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString();
+    }
+
+    private static IReadOnlyList<GradingCriterionResult> StubGrade(IReadOnlyList<GradingCriterionInput> criteria) =>
+        criteria
+            .Select(c => new GradingCriterionResult(
+                c.RubricCriterionId,
+                c.MaxScore,
+                Math.Round(c.MaxScore * 0.8m, 2),
+                Deductions: null,
+                Evidence: "Stub grading (no OpenRouter API key configured).",
+                Comment: "Automatically generated stub score.",
+                Confidence: 0.5m))
+            .ToList();
+
+    private static IReadOnlyList<ExtractedRubricCriterion> StubRubricCriteria() =>
+        [new ExtractedRubricCriterion("Overall Quality", "Stub criterion (no OpenRouter API key configured).", 10m, 0)];
+}

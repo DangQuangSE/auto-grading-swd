@@ -15,6 +15,7 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration);
+builder.Services.AddOpenRouterClient(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 

@@ -2,7 +2,7 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
-using AutoGrading.Grading.Api.OpenRouter;
+using AutoGrading.Common.OpenRouter;
 
 namespace AutoGrading.Grading.Api.Jobs;
 
