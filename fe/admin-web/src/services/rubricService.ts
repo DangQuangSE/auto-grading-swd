@@ -1,5 +1,5 @@
 import { assertValidFileExtension } from "../lib/validation";
-import { apiGet, apiPostForm } from "../lib/apiClient";
+import { apiGet, apiGetBlob, apiPostForm } from "../lib/apiClient";
 
 export type RubricListItem = {
   id: string;
@@ -29,7 +29,17 @@ export async function uploadRubricDocx(params: {
   return apiPostForm<RubricListItem>("/catalog/rubrics/upload", form);
 }
 
-export async function listRubrics(subjectId: string) {
-  const rubrics = await apiGet<RubricListItem[]>(`/catalog/rubrics?subjectId=${subjectId}`);
+export async function listRubrics() {
+  const rubrics = await apiGet<RubricListItem[]>("/catalog/rubrics");
   return [...rubrics].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function downloadRubricFile(rubric: RubricListItem) {
+  const blob = await apiGetBlob(`/catalog/rubrics/${rubric.id}/file`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = rubric.name;
+  link.click();
+  URL.revokeObjectURL(url);
 }
