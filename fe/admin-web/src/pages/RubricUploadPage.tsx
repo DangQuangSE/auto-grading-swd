@@ -1,22 +1,27 @@
 import { useMemo, useState } from "react";
 import { ClipboardCheck, Download } from "lucide-react";
 import { FileDropzone } from "../components/FileDropzone";
+import { RubricCriteriaPanel } from "../components/RubricCriteriaPanel";
 import { Button } from "../components/ui/Button";
 import { Field, SelectInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import { useRubrics, useUploadRubric } from "../hooks/useRubrics";
 import { useAssignments, useSubjects } from "../hooks/useSubjects";
 import { MAX_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
-import { downloadRubricFile, type RubricListItem } from "../services/rubricService";
+import { downloadRubricFile, type RubricListItem, type RubricScope } from "../services/rubricService";
 
 export function RubricUploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
+  const [scope, setScope] = useState<RubricScope>("lecturer");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selectedRubricId, setSelectedRubricId] = useState<string | null>(null);
   const { session } = useAuth();
+  const isAdmin = session?.user.role === "admin";
   const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
   const assignments = useAssignments(subjectId, { pageSize: MAX_PAGE_SIZE });
   const rubrics = useRubrics();
@@ -25,6 +30,7 @@ export function RubricUploadPage() {
     () => new Map((subjects.data?.items ?? []).map((subject) => [subject.id, subject])),
     [subjects.data],
   );
+  const selectedRubric = (rubrics.data ?? []).find((rubric) => rubric.id === selectedRubricId) ?? null;
 
   function handleSubjectChange(nextSubjectId: string) {
     setSubjectId(nextSubjectId);
@@ -47,13 +53,16 @@ export function RubricUploadPage() {
       return;
     }
 
-    await uploadRubric.mutateAsync({
+    const created = await uploadRubric.mutateAsync({
       subjectId,
       assignmentId,
       file,
       lecturerId: session.user.id,
+      scope,
     });
     setFile(null);
+    setScope("lecturer");
+    setSelectedRubricId(created.id);
   }
 
   return (
@@ -89,6 +98,30 @@ export function RubricUploadPage() {
           </SelectInput>
         </Field>
         <FileDropzone label="Rubric Word file" accept=".docx" file={file} onChange={setFile} />
+        <fieldset className="radio-group">
+          <legend>Scope</legend>
+          <label>
+            <input
+              type="radio"
+              name="scope"
+              value="lecturer"
+              checked={scope === "lecturer"}
+              onChange={() => setScope("lecturer")}
+            />
+            Lecturer (only me)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="scope"
+              value="schoolWide"
+              checked={scope === "schoolWide"}
+              disabled={!isAdmin}
+              onChange={() => setScope("schoolWide")}
+            />
+            School-wide {isAdmin ? "" : "(admin only)"}
+          </label>
+        </fieldset>
         {subjects.error ? <FormMessage tone="error">{subjects.error.message}</FormMessage> : null}
         {uploadRubric.error ? <FormMessage tone="error">{uploadRubric.error.message}</FormMessage> : null}
         {uploadRubric.isSuccess ? <FormMessage tone="success">Rubric uploaded and parsing started.</FormMessage> : null}
@@ -108,6 +141,7 @@ export function RubricUploadPage() {
               <tr>
                 <th>Name</th>
                 <th>Subject</th>
+                <th>Status</th>
                 <th>Uploaded</th>
                 <th></th>
               </tr>
@@ -117,8 +151,14 @@ export function RubricUploadPage() {
                 <tr key={rubric.id}>
                   <td>{rubric.name}</td>
                   <td>{subjectsById.get(rubric.subjectId)?.code ?? "-"}</td>
+                  <td>
+                    <StatusBadge status={rubric.status} />
+                  </td>
                   <td>{new Date(rubric.createdAt).toLocaleString()}</td>
                   <td>
+                    <Button variant="text" onClick={() => setSelectedRubricId(rubric.id)}>
+                      Manage
+                    </Button>
                     <Button
                       variant="text"
                       onClick={() => handleDownload(rubric)}
@@ -134,6 +174,7 @@ export function RubricUploadPage() {
           </table>
         ) : null}
       </div>
+      {selectedRubric ? <RubricCriteriaPanel key={selectedRubric.id} rubric={selectedRubric} /> : null}
     </section>
   );
 }

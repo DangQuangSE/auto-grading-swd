@@ -149,6 +149,69 @@ namespace AutoGrading.Grading.Api.Migrations
                     b.ToTable("grade_publications", (string)null);
                 });
 
+            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubric", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ConfirmedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RubricId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RubricId")
+                        .IsUnique();
+
+                    b.ToTable("local_rubrics", (string)null);
+                });
+
+            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubricCriterion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("LocalRubricId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("MaxScore")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RubricCriterionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LocalRubricId");
+
+                    b.ToTable("local_rubric_criteria", (string)null);
+                });
+
             modelBuilder.Entity("AutoGrading.Grading.Api.Domain.AiCriterionScore", b =>
                 {
                     b.HasOne("AutoGrading.Grading.Api.Domain.AiGradingRun", "GradingRun")
@@ -160,9 +223,25 @@ namespace AutoGrading.Grading.Api.Migrations
                     b.Navigation("GradingRun");
                 });
 
+            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubricCriterion", b =>
+                {
+                    b.HasOne("AutoGrading.Grading.Api.Domain.LocalRubric", "LocalRubric")
+                        .WithMany("Criteria")
+                        .HasForeignKey("LocalRubricId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LocalRubric");
+                });
+
             modelBuilder.Entity("AutoGrading.Grading.Api.Domain.AiGradingRun", b =>
                 {
                     b.Navigation("Scores");
+                });
+
+            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubric", b =>
+                {
+                    b.Navigation("Criteria");
                 });
 #pragma warning restore 612, 618
         }

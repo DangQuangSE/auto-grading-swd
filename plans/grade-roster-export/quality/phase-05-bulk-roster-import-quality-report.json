@@ -1,0 +1,100 @@
+{
+  "mode": "gate",
+  "target": "phase-05-bulk-roster-import",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-13T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/RosterImport/RosterFileParser.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/AutoGrading.Identity.Api.csproj"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 1,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-001",
+      "severity": "LOW",
+      "rule": "DOC_INTENTIONAL_LIMIT_IS_A_NON_GOAL",
+      "status": "OPEN",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs:38-42",
+      "evidence": "The BulkImportAsync endpoint XML doc comment documents file format requirements but lacks documentation about the deliberate performance scope limit. The phase plan's Risks mitigation section states: 'Mitigation: Spec assumes class-sized rosters (20–50 rows). Add a comment documenting this assumption.' This documentation is absent.",
+      "why_it_matters": "Without explicitly documented assumptions about intended roster size, future developers may attempt to use this endpoint with large batch imports (1000+ rows), triggering the unmitigated risk: request timeouts and performance degradation due to synchronous processing. The deliberate scope limit becomes invisible to the next reader.",
+      "required_action": "Add a documentation comment (inline or in the XML doc summary) explaining that this endpoint is designed for class-sized rosters (typically 20–50 rows) and is not optimized for large batch imports; note that large files may cause request timeouts.",
+      "owner": "cook"
+    }
+  ],
+  "audit_notes": {
+    "contract_sections_evaluated": [
+      "Core: CORR (Correctness), DOM (Domain Integrity), OWN (Ownership & Boundaries), ERR (Error Handling), SEC (Security), RDB (Readability & Maintainability), CHG (Change Safety)",
+      "Context: TXN (Data Consistency & Transactions), CONC (Concurrency & Async), API (API & Compatibility), DEP (Dependency Hygiene), DOC (Documentation & Decision Trace)",
+      "Stack: DOTNET (Cancellation tokens, IDisposable, sync-over-async, DI lifetimes)"
+    ],
+    "phase_constraints_verified": [
+      "✓ POST /users/bulk-import endpoint exists with lecturer/admin gate via RequireAuthorization policy",
+      "✓ Accepts file uploads in Excel (.xlsx/.xls) and CSV formats via [FromForm] IFormFile",
+      "✓ Parses header-name-mapped columns (Email, StudentCode, ClassName) case-insensitively using OrdinalIgnoreCase",
+      "✓ Returns 400 BadRequest if required columns missing; uses RosterFileParser error string",
+      "✓ Resolves ClassName → ClassId via ClassLecturerCache.FirstOrDefaultAsync with case-insensitive comparison",
+      "✓ Skips rows with 'unknown class' reason when ClassCache is null",
+      "✓ Resolves Email → User via db.Users.FirstOrDefaultAsync; skips with 'email not registered' if null",
+      "✓ Checks authorization per row using RosterAuthorization.AuthorizeAsync (Phase 4 helper); skips with 'not authorized for this student' if Denied",
+      "✓ Updates StudentCode only if non-null; always updates ClassId; marks rows as 'updated'",
+      "✓ Single SaveChangesAsync() call after all rows processed (atomic transaction)",
+      "✓ Returns 200 OK with RosterImportReport: totalRows, updatedCount, skippedCount, details array",
+      "✓ Details contain RowNumber, Email, Status ('updated' or 'skipped'), skip reason if skipped",
+      "✓ DB failure returns 500 Problem with message; no partial update",
+      "✓ XML doc comment documents file format: columns, case-insensitivity, StudentCode blank handling",
+      "✓ No replication/bypass of RosterAuthorization logic; correctly delegates to Phase 4 helper"
+    ],
+    "convention_verification": [
+      "✓ RosterFileParser follows DocxTextExtractor pattern: static class, using var with isEditable: false",
+      "✓ BulkImportAsync follows RubricsEndpoints.UploadRubricAsync pattern: [FromForm] model, DisableAntiforgery(), try-catch DbUpdateException",
+      "✓ UsersEndpoints file is 209 lines, within norm (sibling RubricsEndpoints is 301 lines, both under 800-line limit)",
+      "✓ Response records (BulkImportForm, RosterImportRowResult, RosterImportReport) are sealed records/classes per C# conventions",
+      "✓ Column index math in GetColumnIndex (base-26 conversion) correctly handles A=0, Z=25, AA=26, etc.",
+      "✓ ParseExcelRow array sizing (maxColumn + 1) and Array.Fill correctly handles OpenXml's omitted blank cells",
+      "✓ CancellationToken propagated through all async calls: FirstOrDefaultAsync, AuthorizeAsync, SaveChangesAsync",
+      "✓ No .Result, .Wait(), or GetAwaiter().GetResult() (no sync-over-async)",
+      "✓ IFormFile.OpenReadStream() wrapped in await using for proper disposal",
+      "✓ SpreadsheetDocument.Open wrapped in using var for proper disposal"
+    ],
+    "correctness_checks": [
+      "✓ Email normalization: Trim().ToLowerInvariant() before comparison and storage",
+      "✓ ClassName normalization: Trim() and case-insensitive DB comparison (ToLower() on both sides)",
+      "✓ Row numbering: RowNumber = i + 1 where i starts at 1 (first data row), so row 2 = first data (row 1 is header)",
+      "✓ StudentCode null handling: only updated if row.StudentCode is not null",
+      "✓ Authorization result checking: only skips if == Denied; proceeds for Admin/ClassLecturer/Grader",
+      "✓ Total rows count: uses parseResult.Rows.Count (all parsed rows)",
+      "✓ Skipped count: totalRows - updatedCount",
+      "✓ Row skip conditions follow phase Step 3 exact order: ClassName resolve → Email resolve → authorization"
+    ],
+    "security_checks": [
+      "✓ SEC_PARAMETERIZED_QUERY: All queries use EF Core LINQ, not string concatenation",
+      "✓ SEC_SERVER_SIDE_AUTHZ: Authorization checked server-side via RosterAuthorization; no client-side bypass",
+      "✓ SEC_NO_HARDCODED_SECRET: No secrets in code",
+      "✓ SEC_UPLOAD_CONSTRAINED: File type limited (.xlsx/.xls/.csv); size/row limit is deliberate design choice documented in phase Risks",
+      "✓ SEC_NO_SENSITIVE_DATA_LOGGED: No PII/tokens logged"
+    ],
+    "error_handling": [
+      "✓ ERR_TAXONOMY_CONSISTENT: Parse errors → 400, row skips → 200 with reason, DB error → 500",
+      "✓ ERR_NO_INTERNAL_DETAIL_TO_CLIENT: Error messages are user-friendly, no stack traces",
+      "✓ ERR_CLEANUP_GUARANTEED: File stream closed via await using; DB transaction managed by EF Core"
+    ],
+    "transaction_safety": [
+      "✓ TXN_BOUNDARY_MATCHES_OPERATION: Single SaveChangesAsync wraps entire bulk import operation",
+      "✓ TXN_NO_EXTERNAL_CALL_INSIDE_TXN: No external calls inside transaction",
+      "✓ Atomicity: All rows validated before any persist; single SaveChangesAsync at end; DB failure rolls back all"
+    ],
+    "dependency_hygiene": [
+      "✓ DEP_JUSTIFIED_ADDITION: DocumentFormat.OpenXml 3.1.0 already used by Catalog service (verified in Catalog.Api.csproj line 18); no new vendor dependency introduced"
+    ]
+  }
+}

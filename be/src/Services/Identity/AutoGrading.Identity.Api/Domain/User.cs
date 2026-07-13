@@ -10,5 +10,7 @@ public class User
     public string? GoogleSubjectId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public AppRole Role { get; set; } = AppRole.Student;
+    public string? StudentCode { get; set; }
+    public Guid? ClassId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

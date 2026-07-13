@@ -13,6 +13,7 @@ public class CatalogDbContext : DbContext
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Rubric> Rubrics => Set<Rubric>();
     public DbSet<RubricCriterion> RubricCriteria => Set<RubricCriterion>();
+    public DbSet<Class> Classes => Set<Class>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +42,11 @@ public class CatalogDbContext : DbContext
             entity.ToTable("rubrics");
             entity.HasKey(r => r.Id);
             entity.Property(r => r.Name).IsRequired().HasMaxLength(256);
+            entity.Property(r => r.Status).IsRequired().HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.Scope).IsRequired().HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.RowVersion).IsRowVersion();
+            entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => r.Scope);
             entity.HasOne(r => r.Subject)
                 .WithMany()
                 .HasForeignKey(r => r.SubjectId)
@@ -62,5 +68,24 @@ public class CatalogDbContext : DbContext
                 .HasForeignKey(c => c.RubricId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<Class>(entity =>
+        {
+            entity.ToTable("classes");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Name).IsRequired().HasMaxLength(256);
+            entity.HasIndex(c => c.LecturerId);
+        });
+    }
+
+    /// <summary>Replaces a rubric's criteria wholesale via the <see cref="RubricCriteria"/> DbSet directly
+    /// (not <c>rubric.Criteria.Clear()</c>/<c>.Add()</c>) — mutating a loaded navigation collection on an
+    /// entity with a RowVersion concurrency token causes SaveChanges to throw DbUpdateConcurrencyException.</summary>
+    public List<RubricCriterion> ReplaceRubricCriteria(Rubric rubric, List<RubricCriterion> newCriteria)
+    {
+        RubricCriteria.RemoveRange(rubric.Criteria);
+        RubricCriteria.AddRange(newCriteria);
+
+        return newCriteria;
     }
 }

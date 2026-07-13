@@ -1,0 +1,54 @@
+{
+  "mode": "gate",
+  "target": "phase-01-catalog-class-entity",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-13T21:00:00Z",
+  "re_verified_at": "2026-07-13T22:15:00Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+    "be/src/BuildingBlocks/AutoGrading.Contracts/Events/ClassLecturerAssigned.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260713021753_AddClassEntity.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260713021753_AddClassEntity.Designer.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/CatalogDbContextModelSnapshot.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-001",
+      "severity": "HIGH",
+      "rule": "TXN_BOUNDARY_MATCHES_OPERATION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs:41-49, 52-73",
+      "evidence": "SaveAndPublishAsync (lines 100–124) now wraps both SaveChangesAsync and PublishAsync within a single Database.BeginTransactionAsync block. If PublishAsync throws, the catch block (lines 114–120) rolls back the transaction and returns 503 ServiceUnavailable.",
+      "why_it_matters": "Atomic database and event publication ensures the Class persists only if Identity is notified, per the phase specification's mitigation requirement.",
+      "required_action": "RESOLVED: Both handlers call SaveAndPublishAsync, ensuring consistency.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-002",
+      "severity": "MEDIUM",
+      "rule": "CORR_BOUNDARY_VALIDATION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "medium",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs:78-80",
+      "evidence": "ValidateClassInput helper (lines 126–139) now validates Name (reject if whitespace, line 128) and LecturerId (reject if Guid.Empty, line 133). Called in CreateClassAsync (line 41) and ReassignLecturerAsync (line 70) before entity mutation.",
+      "why_it_matters": "Input validation at the API boundary prevents invalid data from persisting to the database.",
+      "required_action": "RESOLVED: Both request DTOs now validated at the endpoint boundary.",
+      "owner": "cook"
+    }
+  ]
+}

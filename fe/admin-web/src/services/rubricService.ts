@@ -1,5 +1,17 @@
 import { assertValidFileExtension } from "../lib/validation";
-import { apiGet, apiGetBlob, apiPostForm } from "../lib/apiClient";
+import { apiGet, apiGetBlob, apiPatch, apiPost, apiPostForm } from "../lib/apiClient";
+
+export type RubricStatus = "parsing" | "draft" | "confirmed";
+export type RubricScope = "lecturer" | "schoolWide";
+
+export type RubricCriterion = {
+  id: string;
+  rubricId: string;
+  name: string;
+  description?: string | null;
+  maxScore: number;
+  orderIndex: number;
+};
 
 export type RubricListItem = {
   id: string;
@@ -8,6 +20,17 @@ export type RubricListItem = {
   name: string;
   fileObjectKey?: string | null;
   createdAt: string;
+  status: RubricStatus;
+  scope: RubricScope;
+  lecturerId?: string | null;
+  criteria: RubricCriterion[];
+};
+
+export type RubricCriterionInput = {
+  name: string;
+  description?: string | null;
+  maxScore: number;
+  orderIndex: number;
 };
 
 export async function uploadRubricDocx(params: {
@@ -15,6 +38,7 @@ export async function uploadRubricDocx(params: {
   assignmentId?: string | null;
   file: File;
   lecturerId: string;
+  scope?: RubricScope;
 }) {
   assertValidFileExtension(params.file.name, [".docx"]);
 
@@ -25,6 +49,7 @@ export async function uploadRubricDocx(params: {
   }
   form.set("Name", params.file.name);
   form.set("File", params.file);
+  form.set("Scope", params.scope ?? "lecturer");
 
   return apiPostForm<RubricListItem>("/catalog/rubrics/upload", form);
 }
@@ -42,4 +67,16 @@ export async function downloadRubricFile(rubric: RubricListItem) {
   link.download = rubric.name;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export function confirmRubric(rubricId: string) {
+  return apiPost<RubricListItem>(`/catalog/rubrics/${rubricId}/confirm`);
+}
+
+export function unlockRubric(rubricId: string) {
+  return apiPost<RubricListItem>(`/catalog/rubrics/${rubricId}/unlock`);
+}
+
+export function updateRubricCriteria(rubricId: string, criteria: RubricCriterionInput[]) {
+  return apiPatch<RubricCriterion[]>(`/catalog/rubrics/${rubricId}/criteria`, criteria);
 }

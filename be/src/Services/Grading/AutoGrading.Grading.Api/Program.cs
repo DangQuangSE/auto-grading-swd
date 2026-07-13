@@ -5,8 +5,9 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Endpoints;
+using AutoGrading.Grading.Api.Handlers;
 using AutoGrading.Grading.Api.Jobs;
-using AutoGrading.Grading.Api.OpenRouter;
+using AutoGrading.Common.OpenRouter;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -25,12 +26,12 @@ builder.Services.AddEventBus(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
-builder.Services.Configure<OpenRouterOptions>(builder.Configuration.GetSection(OpenRouterOptions.SectionName));
+builder.Services.AddOpenRouterClient(builder.Configuration);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value);
-builder.Services.AddHttpClient<IOpenRouterClient, OpenRouterClient>();
 
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();
+builder.Services.AddScoped<RubricConfirmedHandler>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -64,5 +65,6 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<ArtifactsExtracted, ArtifactsExtractedHandler>();
+eventBus.Subscribe<RubricConfirmed, RubricConfirmedHandler>();
 
 app.Run();

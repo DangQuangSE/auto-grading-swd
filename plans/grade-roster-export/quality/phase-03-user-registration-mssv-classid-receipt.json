@@ -1,0 +1,17 @@
+{
+  "target": "phase-03-user-registration-mssv-classid",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grade-roster-export/quality/phase-03-user-registration-mssv-classid-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Data/IdentityDbContext.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/User.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/AuthEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/20260713024627_AddStudentCodeAndClassIdToUser.Designer.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/20260713024627_AddStudentCodeAndClassIdToUser.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/IdentityDbContextModelSnapshot.cs"
+  ],
+  "source_fingerprint": "sha256:a183511d5ff098f69af498d1019a29bd212ad4adcbb48cfbfd2130b1a2821f7a",
+  "reviewed_at": "2026-07-13T00:00:00Z",
+  "open_blocking_findings": 0
+}

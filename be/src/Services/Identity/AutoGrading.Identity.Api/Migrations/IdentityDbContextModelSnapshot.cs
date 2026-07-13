@@ -22,10 +22,61 @@ namespace AutoGrading.Identity.Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AutoGrading.Identity.Api.Domain.ClassLecturerCache", b =>
+                {
+                    b.Property<Guid>("ClassId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClassName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("LecturerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ClassId");
+
+                    b.ToTable("ClassLecturerCaches");
+                });
+
+            modelBuilder.Entity("AutoGrading.Identity.Api.Domain.SubmissionGrader", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LecturerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("SubmissionId", "LecturerId");
+
+                    b.ToTable("SubmissionGraders");
+                });
+
+            modelBuilder.Entity("AutoGrading.Identity.Api.Domain.SubmissionStudent", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("SubmissionId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("SubmissionStudents");
+                });
+
             modelBuilder.Entity("AutoGrading.Identity.Api.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ClassId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -53,7 +104,13 @@ namespace AutoGrading.Identity.Api.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("StudentCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ClassId");
 
                     b.HasIndex("Email")
                         .IsUnique();

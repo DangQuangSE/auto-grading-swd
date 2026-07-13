@@ -68,7 +68,7 @@ public sealed class ExtractionJob(
         await db.SaveChangesAsync(cancellationToken);
 
         await eventBus.PublishAsync(
-            new ArtifactsExtracted(submission.Id, success, warnings.ToArray()),
+            new ArtifactsExtracted(submission.Id, submission.AssignmentId, success, warnings.ToArray()),
             cancellationToken);
     }
 }
