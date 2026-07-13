@@ -1,0 +1,19 @@
+{
+  "target": "phase-01-catalog-class-entity",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grade-roster-export/quality/phase-01-catalog-class-entity-quality-report.json",
+  "reviewed_files": [
+    "be/src/BuildingBlocks/AutoGrading.Contracts/Events/ClassLecturerAssigned.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260713021753_AddClassEntity.Designer.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260713021753_AddClassEntity.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/CatalogDbContextModelSnapshot.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs"
+  ],
+  "source_fingerprint": "sha256:17d137fc508ce35da931d8f986cc19e90edd720aa0caef5f422f40adac75c53d",
+  "reviewed_at": "2026-07-13T21:00:00Z",
+  "open_blocking_findings": 0
+}

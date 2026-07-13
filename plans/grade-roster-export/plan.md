@@ -10,7 +10,7 @@ This plan implements a complete student roster and grade export system that enab
 
 ## Phases
 
-- [ ] Phase 1: Catalog `Class` Entity & Events — New `Class` domain entity (Id, Name, LecturerId, CreatedAt); CRUD endpoints (POST/PATCH admin-only, GET anonymous); ClassLecturerAssigned event publishing.
+- [x] Phase 1: Catalog `Class` Entity & Events — New `Class` domain entity (Id, Name, LecturerId, CreatedAt); CRUD endpoints (POST/PATCH admin-only, GET anonymous); ClassLecturerAssigned event publishing.
 - [ ] Phase 2: Identity Event Consumers & Local Caches — Cache tables ClassLecturerCache, SubmissionStudent, SubmissionGrader (join deferred to query time, not eagerly merged — see Plan Review); event handlers for ClassLecturerAssigned, SubmissionUploaded, GradePublished; single-row-upsert idempotency (no navigation-collection pattern needed).
 - [ ] Phase 3: User Registration with MSSV & ClassId — User.StudentCode and User.ClassId fields (nullable); POST /auth/register accepts optional studentCode and classId; validates classId against cache (400 if unknown).
 - [ ] Phase 4: User Listing & Batch Endpoints — GET /users (list-all, lecturer/admin-gated); GET /users?ids=... (batch, deduplicated, resolves ClassId→ClassName); PATCH /users/{userId} with real authorization (admin OR class-lecturer OR grader).

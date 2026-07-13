@@ -51,6 +51,7 @@ app.UseAuthorization();
 app.MapSubjectsEndpoints();
 app.MapAssignmentsEndpoints();
 app.MapRubricsEndpoints();
+app.MapClassesEndpoints();
 app.MapHealthChecks("/health");
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {

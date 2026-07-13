@@ -13,6 +13,7 @@ public class CatalogDbContext : DbContext
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Rubric> Rubrics => Set<Rubric>();
     public DbSet<RubricCriterion> RubricCriteria => Set<RubricCriterion>();
+    public DbSet<Class> Classes => Set<Class>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +67,14 @@ public class CatalogDbContext : DbContext
                 .WithMany(r => r.Criteria)
                 .HasForeignKey(c => c.RubricId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Class>(entity =>
+        {
+            entity.ToTable("classes");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Name).IsRequired().HasMaxLength(256);
+            entity.HasIndex(c => c.LecturerId);
         });
     }
 
