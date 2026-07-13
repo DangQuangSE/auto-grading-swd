@@ -35,10 +35,54 @@ public static class GradesEndpoints
             })
             .RequireAuthorization();
 
+        group.MapGet("/final", GetFinalGradesBatchAsync)
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
         group.MapPost("/{submissionId:guid}/publish", PublishGradeAsync)
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
 
         return app;
+    }
+
+    /// <summary>Batch-fetches the latest published FinalGrade per requested SubmissionId in a single query
+    /// (never one query per ID). Submissions with no published grade are simply omitted from the response —
+    /// the caller (admin-web's client-side join) is expected to treat a missing entry as "no grade yet".</summary>
+    private static async Task<IResult> GetFinalGradesBatchAsync(string[]? submissionIds, GradingDbContext db, CancellationToken cancellationToken)
+    {
+        var ids = ParseIds(submissionIds);
+        if (ids is null)
+        {
+            return Results.Ok(Array.Empty<FinalGradeResponse>());
+        }
+
+        var finalGrades = await db.FinalGrades.AsNoTracking()
+            .Where(f => ids.Contains(f.SubmissionId))
+            .OrderByDescending(f => f.CreatedAt)
+            .ThenBy(f => f.Id)
+            .ToListAsync(cancellationToken);
+
+        var latestPerSubmission = finalGrades
+            .GroupBy(f => f.SubmissionId)
+            .Select(g => g.First())
+            .Select(f => new FinalGradeResponse(f.SubmissionId, f.Id, f.FinalScore, f.CreatedAt));
+
+        return Results.Ok(latestPerSubmission);
+    }
+
+    private static HashSet<Guid>? ParseIds(string[]? ids)
+    {
+        if (ids is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        var parsed = ids
+            .SelectMany(value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(token => Guid.TryParse(token, out _))
+            .Select(Guid.Parse)
+            .ToHashSet();
+
+        return parsed.Count > 0 ? parsed : null;
     }
 
     private static async Task<IResult> PublishGradeAsync(
@@ -80,3 +124,5 @@ public static class GradesEndpoints
 }
 
 public sealed record PublishGradeRequest(Guid? GradingRunId, decimal FinalScore, string? Notes);
+
+public sealed record FinalGradeResponse(Guid SubmissionId, Guid FinalGradeId, decimal FinalScore, DateTimeOffset CreatedAt);
