@@ -1,0 +1,23 @@
+{
+  "target": "phase-02-identity-cache-tables",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grade-roster-export/quality/phase-02-identity-cache-tables-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Data/IdentityDbContext.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/ClassLecturerCache.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/SubmissionGrader.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/SubmissionStudent.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/ClassLecturerAssignedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/DbUpdateExceptionExtensions.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/GradePublishedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/SubmissionUploadedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/20260713023423_AddIdentityAuthorizationCaches.Designer.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/20260713023423_AddIdentityAuthorizationCaches.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Migrations/IdentityDbContextModelSnapshot.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs"
+  ],
+  "source_fingerprint": "sha256:8edd02550f272ea211498bf8062e7f6aa5cfe4141efbb4e5811e22e641e11add",
+  "reviewed_at": "2026-07-13T09:45:00Z",
+  "open_blocking_findings": 0
+}
