@@ -19,7 +19,10 @@ export function FileDropzone({
       <input
         type="file"
         accept={accept}
-        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        onChange={(event) => {
+          onChange(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
       />
     </label>
   );

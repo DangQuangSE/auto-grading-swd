@@ -18,6 +18,13 @@ const RubricUploadPage = lazy(() =>
 const ClassManagementPage = lazy(() =>
   import("../pages/ClassManagementPage").then((module) => ({ default: module.ClassManagementPage })),
 );
+const RosterPage = lazy(() => import("../pages/RosterPage").then((module) => ({ default: module.RosterPage })));
+const BulkImportPage = lazy(() =>
+  import("../pages/BulkImportPage").then((module) => ({ default: module.BulkImportPage })),
+);
+const GradeExportPage = lazy(() =>
+  import("../pages/GradeExportPage").then((module) => ({ default: module.GradeExportPage })),
+);
 const SubmissionReviewPage = lazy(() =>
   import("../pages/SubmissionReviewPage").then((module) => ({ default: module.SubmissionReviewPage })),
 );
@@ -41,6 +48,9 @@ export function AppRoutes() {
             <Route path="/assignments" element={<AssignmentsPage />} />
             <Route path="/rubrics" element={<RubricUploadPage />} />
             <Route path="/classes" element={<ClassManagementPage />} />
+            <Route path="/roster" element={<RosterPage />} />
+            <Route path="/roster/import" element={<BulkImportPage />} />
+            <Route path="/grades" element={<GradeExportPage />} />
             <Route path="/review" element={<SubmissionReviewPage />} />
             <Route path="/review/:submissionId" element={<SubmissionReviewPage />} />
           </Route>

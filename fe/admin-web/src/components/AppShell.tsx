@@ -1,11 +1,13 @@
 import {
   ClipboardCheck,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   LayoutDashboard,
   Library,
   LogOut,
   ShieldCheck,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -17,6 +19,8 @@ const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard 
   { to: "/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/rubrics", label: "Rubric", icon: ClipboardCheck },
   { to: "/classes", label: "Classes", icon: Users },
+  { to: "/roster", label: "Roster", icon: UserCheck },
+  { to: "/grades", label: "Grades", icon: FileSpreadsheet },
   { to: "/review", label: "Review", icon: GraduationCap },
 ];
 

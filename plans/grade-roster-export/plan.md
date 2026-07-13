@@ -1,6 +1,6 @@
 # Plan: Student Grade Roster & Excel Export
 
-Status: 🟡 In Progress
+Status: 🟢 Done
 Date: 2026-07-13
 Mode: Hard
 
@@ -17,26 +17,34 @@ This plan implements a complete student roster and grade export system that enab
 - [x] Phase 5: Bulk Roster Import Endpoint — Excel/CSV upload with header-mapped Email/StudentCode/ClassName columns; row-by-row authorization check; atomic per-row updates; detailed skip-reason report (email not registered / unknown class / not authorized).
 - [x] Phase 6: Grading Batch Grades Endpoint — GET /grades/final?submissionIds=... (lecturer/admin-gated); batch endpoint returning latest published FinalGrade per SubmissionId (omit unpublished); deduplicates requested IDs.
 - [x] Phase 7: Admin Class Management UI — admin-web page listing Classes; create Class (form: name, lecturer picker); assign/reassign lecturer (PATCH endpoint); link to roster page.
-- [ ] Phase 8: Admin Student Roster UI — admin-web page listing students (email, full name, MSSV, resolved class name, filters); edit student MSSV/Class (modal or inline, PATCH /users/{userId}); link to bulk import page.
-- [ ] Phase 9: Admin Bulk Roster Import UI — admin-web file upload (Excel/CSV); column mapping UI (if needed); displays detailed skip-reason report per row; row count success/skipped summary.
-- [ ] Phase 10: Admin Grade Table & Export UI — admin-web assignment picker; fetches submissions + batch grades + batch users; client-side join into table (student name, MSSV, class name, published final score); filters by MSSV (partial/exact) and Class (partial/exact, AND logic); Export button generates `.xlsx` via SheetJS with filtered rows + header.
-- [ ] Phase 11: User Registration Form — user-web registration adds MSSV text field; Class dropdown (fetches anonymously from GET /catalog/classes); stores both on registration; displayed in admin roster immediately after registration.
+- [x] Phase 8: Admin Student Roster UI — admin-web page listing students (email, full name, MSSV, resolved class name, filters); edit student MSSV/Class (modal or inline, PATCH /users/{userId}); link to bulk import page.
+- [x] Phase 9: Admin Bulk Roster Import UI — admin-web file upload (Excel/CSV); column mapping UI (if needed); displays detailed skip-reason report per row; row count success/skipped summary.
+- [x] Phase 10: Admin Grade Table & Export UI — admin-web assignment picker; fetches submissions + batch grades + batch users; client-side join into table (student name, MSSV, class name, published final score); filters by MSSV (partial/exact) and Class (partial/exact, AND logic); Export button generates `.xlsx` via SheetJS with filtered rows + header.
+- [x] Phase 11: User Registration Form — user-web registration adds MSSV text field; Class dropdown (fetches anonymously from GET /catalog/classes); stores both on registration; displayed in admin roster immediately after registration.
 
 ## Session Notes
 <!-- Updated by cook automatically — do not edit manually -->
 
-**Last active:** 2026-07-13 11:30
-**Phase in progress:** phase-08-admin-roster-ui (next)
-**Status:** Phase 7 complete — admin-web Class Management UI implemented, tested, building clean.
+**Last active:** 2026-07-13 12:22
+**Phase in progress:** none — all 11 phases complete
+**Status:** Plan complete. All phases implemented, tested, built clean, and code-reviewer APPROVED (each after 0-1 fix rounds). Nothing committed — user's standing instruction is no auto-commit; changes are staged/unstaged in the working tree for manual review.
 
 ### Decisions made this session
-- `GET /catalog/classes` (Catalog, Phase 1 endpoint) was anonymous-only and never returned `LecturerId`, but Phase 7 needs to show "current Lecturer" in the admin table — extended it to include `LecturerId` when the caller is authenticated (still omitted for anonymous callers, per spec FR-02's stated intent).
-- No FE test infra existed in admin-web at all (no vitest/RTL). Added it (vitest + @testing-library/react + jsdom + user-event, `npm test` script, `src/test/setup.ts`) since Phase 7 (and Phases 8-11) require component tests — this is now available for all remaining FE phases.
-- `fetchLecturers()` reuses the existing `GET /identity/users` list-all endpoint and filters `role === "lecturer"` client-side, rather than adding a new backend endpoint (plan allowed either option; no new endpoint needed).
-- Fixed an unhandled-promise-rejection pattern (mutateAsync awaited with no try/catch) while wiring the create/reassign handlers — same pattern exists in SubjectsPage but wasn't touched (out of scope).
+- Phase 7: `GET /catalog/classes` extended to include `LecturerId` for admin/lecturer callers only (code-reviewer caught this leaking to students on first pass — fixed to role-check, re-reviewed APPROVED).
+- Phase 7: bootstrapped admin-web's first FE test infra (vitest + Testing Library, `npm test`).
+- Phase 8: `RosterPage.tsx` edit modal's Class dropdown has a "keep unchanged" option instead of an explicit clear, because `PATCH /users/{userId}`'s `ClassId` is `Guid?` and the backend treats `null` as "no change" (UsersEndpoints.cs) — there's no way to un-assign a class via this endpoint at all. Documented as an out-of-scope backend limitation, not fixed this phase.
+- Phase 8: reused Phase 7's `useClasses()` hook instead of duplicating it (caught by simplify pass as a reuse violation, fixed).
+- Simplify pass (Phases 7-8): skipped useCallback/useMemo micro-optimizations and a shared `Modal` component extraction as premature — no other planned phase (9-11) currently needs a modal, and the codebase doesn't use useCallback/useMemo elsewhere for lists this size (<500 rows assumed).
+- Phase 9: added `xlsx` npm package to admin-web (needed for both this phase's client-side file preview and Phase 10's Excel export — installed once to cover both).
+- Phase 9: code-reviewer caught a HIGH — `FileDropzone`'s uncontrolled input didn't reset its DOM value after selection, so re-picking the same file after a validation failure wouldn't re-fire onChange in some browsers. Fixed by clearing `event.target.value` after every change (benefits `RubricUploadPage` too, which reuses the same component). Re-reviewed APPROVED.
+- Phase 10: `rosterService.ts` refactored — `getUser(id)` is now a thin wrapper over a new `getUsersByIds(ids)`, so the grade table's batch user join reuses it instead of duplicating a users-by-ids fetch.
+- Phase 10: code-reviewer caught a CRITICAL — Excel export wrote student name/MSSV/class name unsanitized into cells, allowing formula injection (CWE-1236) if any of those values start with `=`, `+`, `-`, `@`, tab, or CR. Fixed with a new `sanitizeSpreadsheetCell()` helper in `lib/validation.ts` (quote-prefixes formula-triggering values), applied to all three string fields before export. Re-reviewed APPROVED.
+- Phase 11: user-web (a separate app from admin-web) already had vitest/RTL as devDependencies but `vite.config.ts` never actually wired up the `test` block — fixed the same way as admin-web (switched to `defineConfig` from `vitest/config`, added environment/globals/setupFiles). This was user-web's first real test file.
+- Phase 11: code-reviewer caught a HIGH — toggling signup↔login didn't reset the new StudentCode/Class fields, so stale values from a previous signup attempt would resurface. Fixed by clearing both on the mode-toggle handler (deliberately did not touch `fullName`/`role`, which have the same pre-existing gap but are outside this phase's scope). Re-reviewed APPROVED.
+- User confirmed cadence: cook straight through Phases 10-11 without pausing for review after each phase.
 
 ### Next immediate action
-Start Phase 8: Admin Student Roster UI (list students, edit MSSV/Class, link to bulk import page).
+None — plan complete. Suggested follow-ups for a future session (not part of this plan): rebuild/restart the Docker stack to pick up backend changes (Catalog's `GET /classes`, no other backend changes since Phase 6), and do a live browser walkthrough of all 5 new admin-web pages + user-web registration once Docker Desktop is available (it wasn't running this session, so only automated tests/builds verified the work, not manual UI clicks).
 
 ## Research Summary
 

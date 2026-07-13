@@ -51,6 +51,8 @@ export async function signUpWithEmail(params: {
   password: string;
   fullName: string;
   role: AppRole;
+  studentCode?: string;
+  classId?: string;
 }) {
   assertAllowedEducationEmail(params.email);
 
@@ -59,6 +61,8 @@ export async function signUpWithEmail(params: {
     password: params.password,
     fullName: params.fullName,
     role: params.role,
+    studentCode: params.studentCode || null,
+    classId: params.classId || null,
   });
 
   return signInWithEmail(params.email, params.password);

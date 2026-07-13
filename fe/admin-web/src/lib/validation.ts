@@ -99,6 +99,21 @@ export function assertValidFileExtension(fileName: string, allowedExtensions: st
   }
 }
 
+export function assertValidFileSize(sizeInBytes: number, maxSizeInBytes: number) {
+  if (sizeInBytes > maxSizeInBytes) {
+    throw new Error(`File is too large (max ${Math.floor(maxSizeInBytes / 1024 / 1024)} MB).`);
+  }
+}
+
+const FORMULA_TRIGGER_CHARS = ["=", "+", "-", "@", "\t", "\r"];
+
+/** Neutralizes CSV/Excel formula injection (CWE-1236): a cell value starting with one of these
+ * characters can be interpreted as a formula by some spreadsheet apps when the sheet is opened.
+ * Prefixing with a single quote forces spreadsheet apps to treat it as literal text. */
+export function sanitizeSpreadsheetCell(value: string): string {
+  return FORMULA_TRIGGER_CHARS.includes(value[0]) ? `'${value}` : value;
+}
+
 export function validateAiScoreWithinCriterion(suggestedScore: number, maxScore: number) {
   return aiCriterionScoreSchema.parse({
     criterionId: "00000000-0000-4000-8000-000000000000",

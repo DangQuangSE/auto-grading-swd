@@ -5,6 +5,7 @@ import { Navigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Field, SelectInput, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
+import { useClasses } from "../hooks/useClasses";
 import type { AppRole } from "../lib/database.types";
 import { useAuth } from "../providers/AuthProvider";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "../services/authService";
@@ -16,9 +17,13 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AppRole>("student");
+  const [studentCode, setStudentCode] = useState("");
+  const [classId, setClassId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const classes = useClasses(mode === "signup");
 
   if (session) {
     return <Navigate to="/dashboard" replace />;
@@ -28,6 +33,12 @@ export function LoginPage() {
     event.preventDefault();
     setError(null);
     setMessage(null);
+
+    if (mode === "signup" && studentCode.trim() === "" && studentCode !== "") {
+      setError("Student ID (MSSV) cannot be spaces only.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -35,9 +46,24 @@ export function LoginPage() {
         await signInWithEmail(email, password);
         await refreshSession();
       } else {
-        await signUpWithEmail({ email, password, fullName, role });
-        setMessage("Account created. If email confirmation is enabled, verify your email before signing in.");
+        const trimmedStudentCode = studentCode.trim();
+        await signUpWithEmail({
+          email,
+          password,
+          fullName,
+          role,
+          studentCode: trimmedStudentCode || undefined,
+          classId: classId || undefined,
+        });
+        const selectedClassName = classes.data?.find((klass) => klass.id === classId)?.name;
+        setMessage(
+          selectedClassName
+            ? `Account created. You're in class ${selectedClassName}.`
+            : "Account created. If email confirmation is enabled, verify your email before signing in.",
+        );
         setMode("login");
+        setStudentCode("");
+        setClassId("");
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Authentication failed.");
@@ -95,6 +121,37 @@ export function LoginPage() {
                 <option value="lecturer">Lecturer</option>
               </SelectInput>
             </Field>
+            <Field label="Student ID (MSSV) - optional">
+              <TextInput
+                value={studentCode}
+                onChange={(event) => setStudentCode(event.target.value)}
+                placeholder="e.g., 1A2B3C4D"
+              />
+            </Field>
+            <Field label="Class - optional">
+              <SelectInput
+                value={classId}
+                onChange={(event) => setClassId(event.target.value)}
+                disabled={classes.isLoading}
+              >
+                <option value="">{classes.isLoading ? "Loading..." : "None / Skip"}</option>
+                {(classes.data ?? []).map((klass) => (
+                  <option key={klass.id} value={klass.id}>
+                    {klass.name}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            {classes.error ? (
+              <FormMessage tone="error">
+                Could not load classes. You can skip this field for now, or retry below.
+              </FormMessage>
+            ) : null}
+            {classes.error ? (
+              <Button type="button" variant="text" onClick={() => classes.refetch()}>
+                Retry loading classes
+              </Button>
+            ) : null}
           </>
         ) : null}
         <Field label="Email">
@@ -130,6 +187,8 @@ export function LoginPage() {
             setMode(mode === "login" ? "signup" : "login");
             setError(null);
             setMessage(null);
+            setStudentCode("");
+            setClassId("");
           }}
         >
           {mode === "login" ? "Create a new account" : "Use an existing account"}
