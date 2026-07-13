@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
 using AutoGrading.Common.Messaging;
@@ -12,11 +13,12 @@ public static class ClassesEndpoints
     {
         var group = app.MapGroup("/classes").WithTags("Classes");
 
-        group.MapGet("/", async (CatalogDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (ClaimsPrincipal caller, CatalogDbContext db, CancellationToken ct) =>
             {
+                var includeLecturerId = caller.IsInRole("admin") || caller.IsInRole("lecturer");
                 var classes = await db.Classes.AsNoTracking()
                     .OrderBy(c => c.Name)
-                    .Select(c => new ClassSummary(c.Id, c.Name))
+                    .Select(c => new ClassSummary(c.Id, c.Name, includeLecturerId ? c.LecturerId : (Guid?)null))
                     .ToListAsync(ct);
 
                 return Results.Ok(classes);
@@ -139,7 +141,7 @@ public static class ClassesEndpoints
     }
 }
 
-public sealed record ClassSummary(Guid Id, string Name);
+public sealed record ClassSummary(Guid Id, string Name, Guid? LecturerId);
 
 public sealed record CreateClassRequest(string Name, Guid LecturerId);
 

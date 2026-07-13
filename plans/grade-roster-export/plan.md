@@ -15,12 +15,28 @@ This plan implements a complete student roster and grade export system that enab
 - [x] Phase 3: User Registration with MSSV & ClassId — User.StudentCode and User.ClassId fields (nullable); POST /auth/register accepts optional studentCode and classId; validates classId against cache (400 if unknown).
 - [x] Phase 4: User Listing & Batch Endpoints — GET /users (list-all, lecturer/admin-gated); GET /users?ids=... (batch, deduplicated, resolves ClassId→ClassName); PATCH /users/{userId} with real authorization (admin OR class-lecturer OR grader).
 - [x] Phase 5: Bulk Roster Import Endpoint — Excel/CSV upload with header-mapped Email/StudentCode/ClassName columns; row-by-row authorization check; atomic per-row updates; detailed skip-reason report (email not registered / unknown class / not authorized).
-- [ ] Phase 6: Grading Batch Grades Endpoint — GET /grades/final?submissionIds=... (lecturer/admin-gated); batch endpoint returning latest published FinalGrade per SubmissionId (omit unpublished); deduplicates requested IDs.
-- [ ] Phase 7: Admin Class Management UI — admin-web page listing Classes; create Class (form: name, lecturer picker); assign/reassign lecturer (PATCH endpoint); link to roster page.
+- [x] Phase 6: Grading Batch Grades Endpoint — GET /grades/final?submissionIds=... (lecturer/admin-gated); batch endpoint returning latest published FinalGrade per SubmissionId (omit unpublished); deduplicates requested IDs.
+- [x] Phase 7: Admin Class Management UI — admin-web page listing Classes; create Class (form: name, lecturer picker); assign/reassign lecturer (PATCH endpoint); link to roster page.
 - [ ] Phase 8: Admin Student Roster UI — admin-web page listing students (email, full name, MSSV, resolved class name, filters); edit student MSSV/Class (modal or inline, PATCH /users/{userId}); link to bulk import page.
 - [ ] Phase 9: Admin Bulk Roster Import UI — admin-web file upload (Excel/CSV); column mapping UI (if needed); displays detailed skip-reason report per row; row count success/skipped summary.
 - [ ] Phase 10: Admin Grade Table & Export UI — admin-web assignment picker; fetches submissions + batch grades + batch users; client-side join into table (student name, MSSV, class name, published final score); filters by MSSV (partial/exact) and Class (partial/exact, AND logic); Export button generates `.xlsx` via SheetJS with filtered rows + header.
 - [ ] Phase 11: User Registration Form — user-web registration adds MSSV text field; Class dropdown (fetches anonymously from GET /catalog/classes); stores both on registration; displayed in admin roster immediately after registration.
+
+## Session Notes
+<!-- Updated by cook automatically — do not edit manually -->
+
+**Last active:** 2026-07-13 11:30
+**Phase in progress:** phase-08-admin-roster-ui (next)
+**Status:** Phase 7 complete — admin-web Class Management UI implemented, tested, building clean.
+
+### Decisions made this session
+- `GET /catalog/classes` (Catalog, Phase 1 endpoint) was anonymous-only and never returned `LecturerId`, but Phase 7 needs to show "current Lecturer" in the admin table — extended it to include `LecturerId` when the caller is authenticated (still omitted for anonymous callers, per spec FR-02's stated intent).
+- No FE test infra existed in admin-web at all (no vitest/RTL). Added it (vitest + @testing-library/react + jsdom + user-event, `npm test` script, `src/test/setup.ts`) since Phase 7 (and Phases 8-11) require component tests — this is now available for all remaining FE phases.
+- `fetchLecturers()` reuses the existing `GET /identity/users` list-all endpoint and filters `role === "lecturer"` client-side, rather than adding a new backend endpoint (plan allowed either option; no new endpoint needed).
+- Fixed an unhandled-promise-rejection pattern (mutateAsync awaited with no try/catch) while wiring the create/reassign handlers — same pattern exists in SubjectsPage but wasn't touched (out of scope).
+
+### Next immediate action
+Start Phase 8: Admin Student Roster UI (list students, edit MSSV/Class, link to bulk import page).
 
 ## Research Summary
 

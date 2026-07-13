@@ -15,6 +15,9 @@ const AssignmentsPage = lazy(() =>
 const RubricUploadPage = lazy(() =>
   import("../pages/RubricUploadPage").then((module) => ({ default: module.RubricUploadPage })),
 );
+const ClassManagementPage = lazy(() =>
+  import("../pages/ClassManagementPage").then((module) => ({ default: module.ClassManagementPage })),
+);
 const SubmissionReviewPage = lazy(() =>
   import("../pages/SubmissionReviewPage").then((module) => ({ default: module.SubmissionReviewPage })),
 );
@@ -37,6 +40,7 @@ export function AppRoutes() {
             <Route path="/subjects" element={<SubjectsPage />} />
             <Route path="/assignments" element={<AssignmentsPage />} />
             <Route path="/rubrics" element={<RubricUploadPage />} />
+            <Route path="/classes" element={<ClassManagementPage />} />
             <Route path="/review" element={<SubmissionReviewPage />} />
             <Route path="/review/:submissionId" element={<SubmissionReviewPage />} />
           </Route>
