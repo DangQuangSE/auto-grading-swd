@@ -70,6 +70,7 @@ services:
       RabbitMq__Exchange: autograding.events
       RabbitMq__ServiceName: identity
       GoogleAuth__ClientId: ${GOOGLE_CLIENT_ID}
+      Seed__TestAccounts: "true"
     ports:
       - "5001:8080"
     depends_on:
@@ -252,6 +253,7 @@ services:
       args:
         VITE_API_BASE_URL: http://localhost:5500
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        VITE_ADMIN_WEB_URL: http://localhost:5174
     ports:
       - "5173:80"
     depends_on:

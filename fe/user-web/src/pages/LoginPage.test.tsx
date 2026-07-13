@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "../lib/apiClient";
+import { ApiError, clearStoredSession, setStoredSession } from "../lib/apiClient";
 import { AuthProvider } from "../providers/AuthProvider";
 import * as authService from "../services/authService";
 import * as classService from "../services/classService";
@@ -195,5 +195,17 @@ describe("LoginPage signup", () => {
 
     expect(screen.getByLabelText(/student id/i)).toHaveValue("");
     expect(screen.getByLabelText(/^class/i)).toHaveValue("");
+  });
+
+  it("stays on the login form when a stale lecturer/admin session is already stored", () => {
+    setStoredSession({ token: "stale-token", user: { id: "u1", email: "lecturer@school.edu", role: "lecturer" } });
+
+    try {
+      renderPage();
+
+      expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    } finally {
+      clearStoredSession();
+    }
   });
 });

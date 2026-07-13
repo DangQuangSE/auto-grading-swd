@@ -25,7 +25,11 @@ export function LoginPage() {
 
   const classes = useClasses(mode === "signup");
 
-  if (session) {
+  // Only a student session belongs on user-web's protected routes; a lingering lecturer/admin
+  // session (e.g. from a previous test login) should not bounce the user away from this page —
+  // RequireAuth already redirects lecturer/admin sessions to admin-web on the protected routes,
+  // but /login itself must stay reachable so the user can sign in as a different account.
+  if (session?.user.role === "student") {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -93,107 +97,109 @@ export function LoginPage() {
   }
 
   return (
-    <section className="page-grid compact-page">
-      <header className="page-header">
-        <p>Access</p>
-        <h1>{mode === "login" ? "Sign in" : "Create account"}</h1>
-        <span className="page-note">Only .edu email addresses can access this grading workspace.</span>
-      </header>
-      <form className="form-panel" onSubmit={handleSubmit}>
-        <div className="google-signin-button">
-          <GoogleLogin
-            onSuccess={handleGoogleSignIn}
-            onError={() => setError("Google sign in failed.")}
-            text="continue_with"
-          />
-        </div>
-        <div className="form-divider">
-          <span>Email</span>
-        </div>
-        {mode === "signup" ? (
-          <>
-            <Field label="Full name">
-              <TextInput value={fullName} onChange={(event) => setFullName(event.target.value)} required />
-            </Field>
-            <Field label="Role">
-              <SelectInput value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
-                <option value="student">Student</option>
-                <option value="lecturer">Lecturer</option>
-              </SelectInput>
-            </Field>
-            <Field label="Student ID (MSSV) - optional">
-              <TextInput
-                value={studentCode}
-                onChange={(event) => setStudentCode(event.target.value)}
-                placeholder="e.g., 1A2B3C4D"
-              />
-            </Field>
-            <Field label="Class - optional">
-              <SelectInput
-                value={classId}
-                onChange={(event) => setClassId(event.target.value)}
-                disabled={classes.isLoading}
-              >
-                <option value="">{classes.isLoading ? "Loading..." : "None / Skip"}</option>
-                {(classes.data ?? []).map((klass) => (
-                  <option key={klass.id} value={klass.id}>
-                    {klass.name}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            {classes.error ? (
-              <FormMessage tone="error">
-                Could not load classes. You can skip this field for now, or retry below.
-              </FormMessage>
-            ) : null}
-            {classes.error ? (
-              <Button type="button" variant="text" onClick={() => classes.refetch()}>
-                Retry loading classes
-              </Button>
-            ) : null}
-          </>
-        ) : null}
-        <Field label="Email">
-          <TextInput
-            type="email"
-            placeholder="lecturer@school.edu"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-        </Field>
-        <Field label="Password">
-          <TextInput
-            type="password"
-            placeholder="********"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={6}
-            required
-          />
-        </Field>
-        {authNotice ? <FormMessage tone="error">{authNotice}</FormMessage> : null}
-        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
-        {message ? <FormMessage tone="success">{message}</FormMessage> : null}
-        <Button type="submit" disabled={isSubmitting}>
-          <LockKeyhole aria-hidden="true" />
-          {isSubmitting ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
-        </Button>
-        <Button
-          variant="text"
-          type="button"
-          onClick={() => {
-            setMode(mode === "login" ? "signup" : "login");
-            setError(null);
-            setMessage(null);
-            setStudentCode("");
-            setClassId("");
-          }}
-        >
-          {mode === "login" ? "Create a new account" : "Use an existing account"}
-        </Button>
-      </form>
-    </section>
+    <main className="auth-shell">
+      <section className="page-grid compact-page">
+        <header className="page-header">
+          <p>Access</p>
+          <h1>{mode === "login" ? "Sign in" : "Create account"}</h1>
+          <span className="page-note">Only .edu email addresses can access this grading workspace.</span>
+        </header>
+        <form className="form-panel" onSubmit={handleSubmit}>
+          <div className="google-signin-button">
+            <GoogleLogin
+              onSuccess={handleGoogleSignIn}
+              onError={() => setError("Google sign in failed.")}
+              text="continue_with"
+            />
+          </div>
+          <div className="form-divider">
+            <span>Email</span>
+          </div>
+          {mode === "signup" ? (
+            <>
+              <Field label="Full name">
+                <TextInput value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+              </Field>
+              <Field label="Role">
+                <SelectInput value={role} onChange={(event) => setRole(event.target.value as AppRole)}>
+                  <option value="student">Student</option>
+                  <option value="lecturer">Lecturer</option>
+                </SelectInput>
+              </Field>
+              <Field label="Student ID (MSSV) - optional">
+                <TextInput
+                  value={studentCode}
+                  onChange={(event) => setStudentCode(event.target.value)}
+                  placeholder="e.g., 1A2B3C4D"
+                />
+              </Field>
+              <Field label="Class - optional">
+                <SelectInput
+                  value={classId}
+                  onChange={(event) => setClassId(event.target.value)}
+                  disabled={classes.isLoading}
+                >
+                  <option value="">{classes.isLoading ? "Loading..." : "None / Skip"}</option>
+                  {(classes.data ?? []).map((klass) => (
+                    <option key={klass.id} value={klass.id}>
+                      {klass.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              {classes.error ? (
+                <FormMessage tone="error">
+                  Could not load classes. You can skip this field for now, or retry below.
+                </FormMessage>
+              ) : null}
+              {classes.error ? (
+                <Button type="button" variant="text" onClick={() => classes.refetch()}>
+                  Retry loading classes
+                </Button>
+              ) : null}
+            </>
+          ) : null}
+          <Field label="Email">
+            <TextInput
+              type="email"
+              placeholder="lecturer@school.edu"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Password">
+            <TextInput
+              type="password"
+              placeholder="********"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={6}
+              required
+            />
+          </Field>
+          {authNotice ? <FormMessage tone="error">{authNotice}</FormMessage> : null}
+          {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+          {message ? <FormMessage tone="success">{message}</FormMessage> : null}
+          <Button type="submit" disabled={isSubmitting}>
+            <LockKeyhole aria-hidden="true" />
+            {isSubmitting ? "Working..." : mode === "login" ? "Sign in" : "Create account"}
+          </Button>
+          <Button
+            variant="text"
+            type="button"
+            onClick={() => {
+              setMode(mode === "login" ? "signup" : "login");
+              setError(null);
+              setMessage(null);
+              setStudentCode("");
+              setClassId("");
+            }}
+          >
+            {mode === "login" ? "Create a new account" : "Use an existing account"}
+          </Button>
+        </form>
+      </section>
+    </main>
   );
 }
