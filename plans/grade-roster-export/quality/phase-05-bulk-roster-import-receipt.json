@@ -1,0 +1,14 @@
+{
+  "target": "phase-05-bulk-roster-import",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grade-roster-export/quality/phase-05-bulk-roster-import-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/AutoGrading.Identity.Api.csproj",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/RosterImport/RosterFileParser.cs"
+  ],
+  "source_fingerprint": "sha256:91e18a30b27e524a95b1bb74cbb3817d559a1926a7a90589c4288568e8051e3c",
+  "reviewed_at": "2026-07-13T00:00:00Z",
+  "open_blocking_findings": 0
+}

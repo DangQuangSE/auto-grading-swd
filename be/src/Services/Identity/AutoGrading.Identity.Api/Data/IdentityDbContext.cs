@@ -26,6 +26,10 @@ public class IdentityDbContext : DbContext
             entity.HasIndex(u => u.GoogleSubjectId).IsUnique().HasFilter("[GoogleSubjectId] IS NOT NULL");
             entity.Property(u => u.FullName).HasMaxLength(256);
             entity.Property(u => u.Role).HasConversion<string>().HasMaxLength(32);
+            // No unique constraint on StudentCode: MSSV format/uniqueness is unenforced per spec for this iteration.
+            entity.Property(u => u.StudentCode).IsRequired(false).HasMaxLength(50);
+            entity.Property(u => u.ClassId).IsRequired(false);
+            entity.HasIndex(u => u.ClassId);
         });
 
         modelBuilder.Entity<ClassLecturerCache>(entity =>

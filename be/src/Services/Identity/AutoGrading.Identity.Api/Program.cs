@@ -48,6 +48,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
+app.MapUsersEndpoints();
 app.MapHealthChecks("/health");
 
 var eventBus = app.Services.GetRequiredService<IEventBus>();

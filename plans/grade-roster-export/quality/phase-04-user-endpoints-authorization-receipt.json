@@ -1,0 +1,16 @@
+{
+  "target": "phase-04-user-endpoints-authorization",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grade-roster-export/quality/phase-04-user-endpoints-authorization-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Authorization/RosterAuthorization.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Data/IdentityDbContext.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/User.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs"
+  ],
+  "source_fingerprint": "sha256:f5d421356ce4ce425f23ae7be42717dbb0a887dd2876d6c58831ccd35cef4755",
+  "reviewed_at": "2026-07-13T00:00:00Z",
+  "open_blocking_findings": 0
+}

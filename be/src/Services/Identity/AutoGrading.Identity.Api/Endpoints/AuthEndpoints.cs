@@ -39,11 +39,18 @@ public static class AuthEndpoints
             return Results.Conflict(new { message = "Email already registered." });
         }
 
+        if (request.ClassId is { } classId && !await db.ClassLecturerCaches.AnyAsync(c => c.ClassId == classId, cancellationToken))
+        {
+            return Results.BadRequest(new { message = "Class not found or not yet synchronized; please try again or contact your administrator." });
+        }
+
         var user = new User
         {
             Email = email,
             FullName = request.FullName,
             Role = request.Role,
+            StudentCode = request.StudentCode,
+            ClassId = request.ClassId,
         };
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
 
@@ -137,7 +144,7 @@ public static class AuthEndpoints
     }
 }
 
-public sealed record RegisterRequest(string Email, string Password, string FullName, AppRole Role);
+public sealed record RegisterRequest(string Email, string Password, string FullName, AppRole Role, string? StudentCode = null, Guid? ClassId = null);
 
 public sealed record LoginRequest(string Email, string Password);
 
