@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { FileDropzone } from "../components/FileDropzone";
 import { Button } from "../components/ui/Button";
 import { Field, SelectInput } from "../components/ui/Field";
@@ -14,6 +15,7 @@ export function StudentSubmissionPage() {
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
   const { session } = useAuth();
+  const navigate = useNavigate();
   const subjects = useSubjects();
   const assignments = useAssignments(subjectId);
   const createSubmission = useCreateSubmission();
@@ -36,8 +38,8 @@ export function StudentSubmissionPage() {
 
     await runExtraction.mutateAsync({ submissionId: submission.id, actorId: session.user.id });
     await runAiGrading.mutateAsync({ submissionId: submission.id, actorId: session.user.id });
-    setReport(null);
-    setDiagram(null);
+
+    navigate(`/result/${submission.id}`);
   }
 
   const isSubmitting = createSubmission.isPending || runExtraction.isPending || runAiGrading.isPending;

@@ -1,5 +1,5 @@
 using AutoGrading.Common.Messaging;
-using AutoGrading.Common.OpenRouter;
+using AutoGrading.Common.OpenCode;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
@@ -17,10 +17,10 @@ public class AiGradingJobTests
             .UseInMemoryDatabase(databaseName)
             .Options);
 
-    // No API key configured -> OpenRouterClient falls back to its deterministic stub, so these
+    // No API key configured -> OpenCodeClient falls back to its deterministic stub, so these
     // tests exercise AiGradingJob's rubric-lookup/failure logic without making real HTTP calls.
-    private static IOpenRouterClient CreateStubOpenRouterClient() =>
-        new OpenRouterClient(new HttpClient(), Options.Create(new OpenRouterOptions()), NullLogger<OpenRouterClient>.Instance);
+    private static IOpenCodeClient CreateStubOpenCodeClient() =>
+        new OpenCodeClient(new HttpClient(), Options.Create(new OpenCodeOptions()), NullLogger<OpenCodeClient>.Instance);
 
     private sealed class RecordingEventBus : IEventBus
     {
@@ -48,7 +48,7 @@ public class AiGradingJobTests
         var assignmentId = Guid.NewGuid();
 
         await using var db = CreateDbContext(dbName);
-        var job = new AiGradingJob(db, CreateStubOpenRouterClient(), new OpenRouterOptions(), new RecordingEventBus());
+        var job = new AiGradingJob(db, CreateStubOpenCodeClient(), new OpenCodeOptions(), new RecordingEventBus());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => job.ExecuteAsync(submissionId, assignmentId, CancellationToken.None));
@@ -82,7 +82,7 @@ public class AiGradingJobTests
 
         var eventBus = new RecordingEventBus();
         await using var db = CreateDbContext(dbName);
-        var job = new AiGradingJob(db, CreateStubOpenRouterClient(), new OpenRouterOptions(), eventBus);
+        var job = new AiGradingJob(db, CreateStubOpenCodeClient(), new OpenCodeOptions(), eventBus);
 
         await job.ExecuteAsync(submissionId, assignmentId, CancellationToken.None);
 

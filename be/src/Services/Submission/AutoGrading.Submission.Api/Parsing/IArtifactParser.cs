@@ -2,7 +2,7 @@ using AutoGrading.SubmissionSvc.Api.Domain;
 
 namespace AutoGrading.SubmissionSvc.Api.Parsing;
 
-public sealed record ParsedArtifact(string? Content, string[] Warnings);
+public sealed record ParsedArtifact(string? Content, string[] Warnings, string[]? ImageDataUrls = null);
 
 /// <summary>Parses report (.docx) and diagram (.drawio) submission files into structured content.</summary>
 public interface IArtifactParser

@@ -1,9 +1,10 @@
+using System.Text.Json;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Clients;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
-using AutoGrading.Common.OpenRouter;
+using AutoGrading.Common.OpenCode;
 using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Grading.Api.Jobs;
@@ -17,8 +18,8 @@ public sealed class AiGradingJob(
     GradingDbContext db,
     ICatalogApiClient catalogApiClient,
     ISubmissionApiClient submissionApiClient,
-    IOpenRouterClient openRouterClient,
-    OpenRouterOptions openRouterOptions,
+    IOpenCodeClient openCodeClient,
+    OpenCodeOptions openCodeOptions,
     IEventBus eventBus)
 {
     public async Task ExecuteAsync(Guid submissionId, string? assignmentDescriptionOverride = null, CancellationToken cancellationToken = default)
@@ -26,7 +27,7 @@ public sealed class AiGradingJob(
         var run = new AiGradingRun
         {
             SubmissionId = submissionId,
-            Model = openRouterOptions.Model,
+            Model = openCodeOptions.Model,
             Status = AiGradingRunStatus.Running,
         };
 
@@ -39,26 +40,29 @@ public sealed class AiGradingJob(
                 ?? throw new InvalidOperationException($"Submission {submissionId} was not found.");
 
             var rubricCriteria = await catalogApiClient.GetCriteriaForAssignmentAsync(submission.AssignmentId, cancellationToken);
-            if (rubricCriteria.Count == 0)
-            {
-                throw new InvalidOperationException($"No rubric criteria found for assignment {submission.AssignmentId}.");
-            }
+
+            // Fall back to a single general criterion when no rubric has been uploaded yet
+            // so grading produces a result rather than failing hard.
+            var criteria = rubricCriteria.Count > 0
+                ? rubricCriteria.Select(c => new GradingCriterionInput(c.Id, c.Name, c.MaxScore)).ToArray()
+                : [new GradingCriterionInput(Guid.NewGuid(), "Overall Quality", 10m)];
 
             var assignment = await catalogApiClient.GetAssignmentAsync(submission.AssignmentId, cancellationToken);
             var assignmentDescription = assignmentDescriptionOverride ?? assignment?.Description;
 
-            var criteria = rubricCriteria
-                .Select(c => new GradingCriterionInput(c.Id, c.Name, c.MaxScore))
-                .ToArray();
+            var reportArtifact = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Report);
+            var diagramArtifact = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Diagram);
 
-            var reportContent = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Report)?.Content ?? string.Empty;
-            var diagramContent = submission.Artifacts.FirstOrDefault(a => a.Kind == ArtifactKindDto.Diagram)?.Content ?? string.Empty;
+            var reportContent = reportArtifact?.Content ?? string.Empty;
+            var diagramContent = diagramArtifact?.Content ?? string.Empty;
+            var images = ParseImages(reportArtifact?.ImagesJson).Concat(ParseImages(diagramArtifact?.ImagesJson)).ToArray();
 
-            var results = await openRouterClient.GradeAsync(
+            var results = await openCodeClient.GradeAsync(
                 reportContent: reportContent,
                 diagramContent: diagramContent,
                 criteria: criteria,
                 assignmentDescription: assignmentDescription,
+                images: images,
                 cancellationToken: cancellationToken);
 
             foreach (var result in results)
@@ -92,6 +96,23 @@ public sealed class AiGradingJob(
             run.CompletedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
             throw;
+        }
+    }
+
+    private static string[] ParseImages(string? imagesJson)
+    {
+        if (string.IsNullOrWhiteSpace(imagesJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(imagesJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
         }
     }
 }

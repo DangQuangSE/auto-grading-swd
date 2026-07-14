@@ -27,6 +27,7 @@ export function AppRoutes() {
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/submit" replace />} />
             <Route path="/submit" element={<StudentSubmissionPage />} />
+            <Route path="/result/:submissionId" element={<StudentResultPage />} />
             <Route path="/result" element={<StudentResultPage />} />
           </Route>
         </Route>

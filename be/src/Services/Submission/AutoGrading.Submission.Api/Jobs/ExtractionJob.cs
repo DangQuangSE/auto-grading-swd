@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Common.Storage;
 using AutoGrading.Contracts.Events;
@@ -58,6 +59,9 @@ public sealed class ExtractionJob(
                     Kind = kind,
                     Content = parsed.Content,
                     Warnings = parsed.Warnings.Length > 0 ? string.Join("; ", parsed.Warnings) : null,
+                    ImagesJson = parsed.ImageDataUrls is { Length: > 0 }
+                        ? JsonSerializer.Serialize(parsed.ImageDataUrls)
+                        : null,
                 });
                 warnings.AddRange(parsed.Warnings);
             }

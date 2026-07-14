@@ -7,19 +7,24 @@ namespace AutoGrading.SubmissionSvc.Api.Parsing;
 /// <summary>
 /// Extracts report text grouped by heading, per docs/submission-template-guidelines.md: paragraphs
 /// using a "HeadingN" style start a new section, all other paragraphs are appended to the current
-/// (or an "Untitled" leading) section. Text inside images is intentionally not extracted.
+/// (or an "Untitled" leading) section. Embedded images are extracted separately as base64 data URLs
+/// so a vision-capable model can grade diagrams/screenshots pasted directly into the report.
 /// </summary>
 public sealed class DocxReportParser
 {
-    public Task<ParsedArtifact> ParseAsync(Stream stream, string objectKey, CancellationToken cancellationToken = default)
+    private const int MaxImages = 8;
+    private const int MaxImageBytes = 4 * 1024 * 1024;
+
+    public async Task<ParsedArtifact> ParseAsync(Stream stream, string objectKey, CancellationToken cancellationToken = default)
     {
         using var document = WordprocessingDocument.Open(stream, false);
         var body = document.MainDocumentPart?.Document.Body;
         if (body is null)
         {
-            return Task.FromResult(new ParsedArtifact(null, ["The report document has no readable body content."]));
+            return new ParsedArtifact(null, ["The report document has no readable body content."]);
         }
 
+        var images = await ExtractImagesAsync(document, cancellationToken);
         var sections = new List<(string Heading, StringBuilder Text)>();
 
         foreach (var paragraph in body.Elements<Paragraph>())
@@ -44,9 +49,9 @@ public sealed class DocxReportParser
             sections[^1].Text.AppendLine(text);
         }
 
-        if (sections.Count == 0)
+        if (sections.Count == 0 && images.DataUrls.Count == 0)
         {
-            return Task.FromResult(new ParsedArtifact(null, ["No text content was found in the report document."]));
+            return new ParsedArtifact(null, ["No text content was found in the report document."]);
         }
 
         var content = new StringBuilder();
@@ -61,12 +66,48 @@ public sealed class DocxReportParser
             content.AppendLine($"## {heading}").AppendLine(sectionText).AppendLine();
         }
 
-        return Task.FromResult(new ParsedArtifact(content.ToString().Trim(), []));
+        var warnings = images.Skipped > 0
+            ? new[] { $"{images.Skipped} embedded image(s) were skipped (too many or too large)." }
+            : [];
+
+        return new ParsedArtifact(content.ToString().Trim(), warnings, images.DataUrls.ToArray());
     }
 
     private static bool IsHeading(Paragraph paragraph)
     {
         var styleId = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
         return styleId is not null && styleId.StartsWith("Heading", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<(List<string> DataUrls, int Skipped)> ExtractImagesAsync(
+        WordprocessingDocument document, CancellationToken cancellationToken)
+    {
+        var dataUrls = new List<string>();
+        var skipped = 0;
+
+        var imageParts = document.MainDocumentPart?.ImageParts ?? [];
+        foreach (var imagePart in imageParts)
+        {
+            if (dataUrls.Count >= MaxImages)
+            {
+                skipped++;
+                continue;
+            }
+
+            await using var partStream = imagePart.GetStream();
+            using var buffer = new MemoryStream();
+            await partStream.CopyToAsync(buffer, cancellationToken);
+
+            if (buffer.Length == 0 || buffer.Length > MaxImageBytes)
+            {
+                skipped++;
+                continue;
+            }
+
+            var base64 = Convert.ToBase64String(buffer.ToArray());
+            dataUrls.Add($"data:{imagePart.ContentType};base64,{base64}");
+        }
+
+        return (dataUrls, skipped);
     }
 }

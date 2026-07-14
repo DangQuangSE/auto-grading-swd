@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using AutoGrading.Common.OpenRouter;
+using AutoGrading.Common.OpenCode;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -8,13 +8,13 @@ namespace AutoGrading.Common.Tests.OpenRouter;
 
 public class ParseRubricCriteriaAsyncTests
 {
-    private static OpenRouterClient CreateClient(string chatCompletionContent)
+    private static OpenCodeClient CreateClient(string chatCompletionContent)
     {
         var handler = new StubHttpMessageHandler(BuildChatCompletionPayload(chatCompletionContent));
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://openrouter.example/") };
-        var options = Options.Create(new OpenRouterOptions { ApiKey = "test-key" });
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://opencode.example/") };
+        var options = Options.Create(new OpenCodeOptions { ApiKey = "test-key" });
 
-        return new OpenRouterClient(httpClient, options, NullLogger<OpenRouterClient>.Instance);
+        return new OpenCodeClient(httpClient, options, NullLogger<OpenCodeClient>.Instance);
     }
 
     private static string BuildChatCompletionPayload(string messageContent)

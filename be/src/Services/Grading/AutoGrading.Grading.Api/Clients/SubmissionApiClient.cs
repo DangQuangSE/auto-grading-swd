@@ -10,7 +10,7 @@ public enum ArtifactKindDto
     Diagram,
 }
 
-public sealed record ExtractedArtifactDto(Guid Id, ArtifactKindDto Kind, string? Content, string? Warnings);
+public sealed record ExtractedArtifactDto(Guid Id, ArtifactKindDto Kind, string? Content, string? Warnings, string? ImagesJson);
 
 public sealed record SubmissionDto(Guid Id, Guid AssignmentId, Guid StudentId, List<ExtractedArtifactDto> Artifacts);
 
