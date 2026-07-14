@@ -1,19 +1,23 @@
+using AutoGrading.SubmissionSvc.Api.Domain;
+
 namespace AutoGrading.SubmissionSvc.Api.Parsing;
 
-public sealed record ParsedArtifact(string? Content, string[] Warnings);
+public sealed record ParsedArtifact(string? Content, string[] Warnings, string[]? ImageDataUrls = null);
 
-/// <summary>
-/// Parses report (.docx) and diagram (.drawio) submission files into structured content.
-/// Stub implementation: real parsing (port of the Supabase docxParser/drawioParser Edge Functions)
-/// is deferred to a later phase; this always returns an empty result with no warnings.
-/// </summary>
+/// <summary>Parses report (.docx) and diagram (.drawio) submission files into structured content.</summary>
 public interface IArtifactParser
 {
-    Task<ParsedArtifact> ParseAsync(Stream stream, string objectKey, CancellationToken cancellationToken = default);
+    Task<ParsedArtifact> ParseAsync(ArtifactKind kind, Stream stream, string objectKey, CancellationToken cancellationToken = default);
 }
 
-public sealed class StubArtifactParser : IArtifactParser
+/// <summary>Dispatches to the concrete parser for the given artifact kind.</summary>
+public sealed class ArtifactParser(DocxReportParser reportParser, DrawioDiagramParser diagramParser) : IArtifactParser
 {
-    public Task<ParsedArtifact> ParseAsync(Stream stream, string objectKey, CancellationToken cancellationToken = default)
-        => Task.FromResult(new ParsedArtifact(Content: null, Warnings: Array.Empty<string>()));
+    public Task<ParsedArtifact> ParseAsync(ArtifactKind kind, Stream stream, string objectKey, CancellationToken cancellationToken = default) =>
+        kind switch
+        {
+            ArtifactKind.Report => reportParser.ParseAsync(stream, objectKey, cancellationToken),
+            ArtifactKind.Diagram => diagramParser.ParseAsync(stream, objectKey, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported artifact kind."),
+        };
 }

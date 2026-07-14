@@ -34,6 +34,9 @@ namespace AutoGrading.SubmissionSvc.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ImagesJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -64,7 +67,6 @@ namespace AutoGrading.SubmissionSvc.Api.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DiagramObjectKey")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReportObjectKey")

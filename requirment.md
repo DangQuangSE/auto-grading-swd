@@ -59,12 +59,12 @@
 | **Identity** | User registration/login, password hashing, JWT issuance, publishes `UserRegistered` | `POST /auth/register`, `POST /auth/login` |
 | **Catalog** | Subjects, assignments, rubric upload/parsing (.docx → criteria), publishes `RubricParsed` | `GET/POST /subjects`, `GET/POST /assignments`, `GET /rubrics`, `POST /rubrics/upload` |
 | **Submission** | Submission upload to MinIO, artifact extraction (report/diagram) as a Hangfire job, publishes `SubmissionUploaded`/`ArtifactsExtracted` | `GET /submissions`, `GET /submissions/{id}`, `POST /submissions/upload` |
-| **Grading** | AI-assisted grading via OpenRouter as a Hangfire job, final grade publish, publishes `AiGradingCompleted`/`GradePublished` | `GET /grades/{submissionId}/runs`, `GET /grades/{submissionId}/final`, `POST /grades/{submissionId}/publish` |
-| **Notification** | Cross-service event consumer: audit log + per-user notifications | `GET /notifications`, `GET /audit-events` |
+| **Grading** | AI-assisted grading via OpenRouter as a Hangfire job, final grade publish, publishes `AiGradingCompleted`/`GradePublished` | `GET /grading/grades/{submissionId}/runs`, `GET /grading/grades/{submissionId}/final`, `POST /grading/grades/{submissionId}/publish` |
+| **Notification** | Cross-service event consumer: audit log + per-user notifications | `GET /notifications`, `GET /notifications/unread-count`, `DELETE /notifications/{id}`, `GET /audit-events` |
 
 All five services sit behind a **YARP API Gateway** (`AutoGrading.Gateway`) that terminates
 JWT validation, applies CORS, and reverse-proxies to each service by route prefix
-(`/identity/*`, `/catalog/*`, `/submissions/*`, `/grades/*`, `/notifications/*`).
+(`/identity/*`, `/catalog/*`, `/submissions/*`, `/grading/*`, `/notifications/*`).
 
 ---
 

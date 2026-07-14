@@ -6,7 +6,13 @@ export function isAllowedEducationEmail(email?: string | null) {
   if (!domain) {
     return false;
   }
-  return domain.endsWith(".edu") || domain.includes(".edu.");
+
+  return (
+    domain.endsWith(".edu") ||
+    domain.includes(".edu.") ||
+    domain === "edu.vn" ||
+    domain.endsWith(".edu.vn")
+  );
 }
 
 function assertAllowedEducationEmail(email: string) {

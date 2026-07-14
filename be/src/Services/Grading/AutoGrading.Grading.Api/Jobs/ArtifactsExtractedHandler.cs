@@ -11,7 +11,7 @@ public sealed class ArtifactsExtractedHandler(IBackgroundJobClient backgroundJob
     {
         if (@event.Success)
         {
-            backgroundJobs.Enqueue<AiGradingJob>(job => job.ExecuteAsync(@event.SubmissionId, @event.AssignmentId, CancellationToken.None));
+            backgroundJobs.Enqueue<AiGradingJob>(job => job.ExecuteAsync(@event.SubmissionId, null, CancellationToken.None));
         }
 
         return Task.CompletedTask;

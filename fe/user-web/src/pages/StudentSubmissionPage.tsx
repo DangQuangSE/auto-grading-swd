@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { FileDropzone } from "../components/FileDropzone";
 import { Button } from "../components/ui/Button";
 import { Field, SelectInput } from "../components/ui/Field";
@@ -14,6 +15,7 @@ export function StudentSubmissionPage() {
   const [subjectId, setSubjectId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
   const { session } = useAuth();
+  const navigate = useNavigate();
   const subjects = useSubjects();
   const assignments = useAssignments(subjectId);
   const createSubmission = useCreateSubmission();
@@ -23,7 +25,7 @@ export function StudentSubmissionPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!session || !report || !diagram || !assignmentId) {
+    if (!session || !report || !assignmentId) {
       return;
     }
 
@@ -31,13 +33,13 @@ export function StudentSubmissionPage() {
       assignmentId,
       studentId: session.user.id,
       reportFile: report,
-      diagramFile: diagram,
+      diagramFile: diagram ?? undefined,
     });
 
     await runExtraction.mutateAsync({ submissionId: submission.id, actorId: session.user.id });
     await runAiGrading.mutateAsync({ submissionId: submission.id, actorId: session.user.id });
-    setReport(null);
-    setDiagram(null);
+
+    navigate(`/result/${submission.id}`);
   }
 
   const isSubmitting = createSubmission.isPending || runExtraction.isPending || runAiGrading.isPending;
@@ -70,12 +72,12 @@ export function StudentSubmissionPage() {
           </SelectInput>
         </Field>
         <FileDropzone label="Report document" accept=".docx" file={report} onChange={setReport} />
-        <FileDropzone label="Architecture diagram" accept=".drawio" file={diagram} onChange={setDiagram} />
+        <FileDropzone label="Architecture diagram (optional)" accept=".drawio" file={diagram} onChange={setDiagram} />
         {createSubmission.error ? <FormMessage tone="error">{createSubmission.error.message}</FormMessage> : null}
         {runExtraction.error ? <FormMessage tone="error">{runExtraction.error.message}</FormMessage> : null}
         {runAiGrading.error ? <FormMessage tone="error">{runAiGrading.error.message}</FormMessage> : null}
         {runAiGrading.isSuccess ? <FormMessage tone="success">Submission uploaded and AI grading started.</FormMessage> : null}
-        <Button type="submit" disabled={!report || !diagram || !assignmentId || isSubmitting}>
+        <Button type="submit" disabled={!report || !assignmentId || isSubmitting}>
           <Send aria-hidden="true" />
           {isSubmitting ? "Submitting..." : "Submit"}
         </Button>

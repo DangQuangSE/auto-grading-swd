@@ -49,6 +49,10 @@ public sealed class JwtTokenGenerator
         _options = options.Value;
     }
 
+    /// <summary>Mints a short-lived token for internal service-to-service calls (e.g. Grading calling Catalog/Submission).</summary>
+    public string GenerateServiceToken(string callingServiceName) =>
+        GenerateToken(Guid.Empty, $"{callingServiceName}@internal.autograding", AppRole.Service);
+
     public string GenerateToken(Guid userId, string email, AppRole role)
     {
         var claims = new[]

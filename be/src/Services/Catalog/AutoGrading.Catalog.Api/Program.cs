@@ -18,7 +18,7 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration);
-builder.Services.AddOpenRouterClient(builder.Configuration);
+builder.Services.AddOpenCodeClient(builder.Configuration);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));

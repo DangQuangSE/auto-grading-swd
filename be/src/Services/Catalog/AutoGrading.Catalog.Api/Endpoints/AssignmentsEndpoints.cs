@@ -32,6 +32,13 @@ public static class AssignmentsEndpoints
             })
             .RequireAuthorization();
 
+        group.MapGet("/{id:guid}", async (Guid id, CatalogDbContext db, CancellationToken ct) =>
+            {
+                var assignment = await db.Assignments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
+                return assignment is null ? Results.NotFound() : Results.Ok(assignment);
+            })
+            .RequireAuthorization();
+
         group.MapPost("/", async (CreateAssignmentRequest request, CatalogDbContext db, CancellationToken ct) =>
             {
                 var assignment = new Assignment

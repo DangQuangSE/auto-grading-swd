@@ -7,6 +7,7 @@ export type RubricScope = "lecturer" | "schoolWide";
 export type RubricCriterion = {
   id: string;
   rubricId: string;
+  code: string;
   name: string;
   description?: string | null;
   maxScore: number;
@@ -54,8 +55,18 @@ export async function uploadRubricDocx(params: {
   return apiPostForm<RubricListItem>("/catalog/rubrics/upload", form);
 }
 
-export async function listRubrics() {
-  const rubrics = await apiGet<RubricListItem[]>("/catalog/rubrics");
+export async function listRubrics(params?: { subjectId?: string; assignmentId?: string | null }) {
+  const query = new URLSearchParams();
+  if (params?.subjectId) {
+    query.set("subjectId", params.subjectId);
+  }
+
+  if (params?.assignmentId) {
+    query.set("assignmentId", params.assignmentId);
+  }
+
+  const qs = query.toString();
+  const rubrics = await apiGet<RubricListItem[]>(`/catalog/rubrics${qs ? `?${qs}` : ""}`);
   return [...rubrics].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

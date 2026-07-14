@@ -18,12 +18,17 @@ public static class RubricsEndpoints
     {
         var group = app.MapGroup("/rubrics").WithTags("Rubrics");
 
-        group.MapGet("/", async (Guid? subjectId, CatalogDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (Guid? subjectId, Guid? assignmentId, CatalogDbContext db, CancellationToken ct) =>
             {
                 var query = db.Rubrics.AsNoTracking().Include(r => r.Criteria).AsQueryable();
                 if (subjectId is not null)
                 {
                     query = query.Where(r => r.SubjectId == subjectId);
+                }
+
+                if (assignmentId is not null)
+                {
+                    query = query.Where(r => r.AssignmentId == assignmentId);
                 }
 
                 return Results.Ok(await query.ToListAsync(ct));

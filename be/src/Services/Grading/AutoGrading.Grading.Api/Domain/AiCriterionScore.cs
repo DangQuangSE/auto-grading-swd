@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AutoGrading.Grading.Api.Domain;
 
 public class AiCriterionScore
@@ -13,5 +15,6 @@ public class AiCriterionScore
     public string? Comment { get; set; }
     public decimal? Confidence { get; set; }
 
+    [JsonIgnore]
     public AiGradingRun? GradingRun { get; set; }
 }

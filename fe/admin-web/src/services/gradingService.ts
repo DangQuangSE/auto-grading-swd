@@ -1,4 +1,5 @@
 import { apiGet } from "../lib/apiClient";
+import type { RubricCriterion, RubricListItem } from "./rubricService";
 import type { SubmissionRecord } from "./submissionService";
 
 type RawArtifact = {
@@ -73,14 +74,36 @@ export async function getSubmissionReviewData(submissionId: string) {
 
   const latestRun = [...runs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
-  const aiScores = (latestRun?.scores ?? []).map((score) => ({
-    id: score.id,
-    rubric_criterion_id: score.rubricCriterionId,
-    suggested_score: score.suggestedScore,
-    max_score: score.maxScore,
-    comment: score.comment ?? null,
-    evidence: score.evidence ?? null,
-  }));
+  // Fetch rubric criteria for the assignment so the review UI can show real names/codes.
+  let criteriaById: Map<string, RubricCriterion> = new Map();
+  if (submission.assignmentId) {
+    try {
+      const rubrics = await apiGet<RubricListItem[]>(
+        `/catalog/rubrics?assignmentId=${submission.assignmentId}`,
+      );
+      const latestRubric = [...rubrics].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      if (latestRubric) {
+        criteriaById = new Map(latestRubric.criteria.map((c) => [c.id, c]));
+      }
+    } catch {
+      // Criteria enrichment is best-effort; missing rubric should not block the review.
+    }
+  }
+
+  const aiScores = (latestRun?.scores ?? []).map((score) => {
+    const criterion = criteriaById.get(score.rubricCriterionId);
+    return {
+      id: score.id,
+      rubric_criterion_id: score.rubricCriterionId,
+      suggested_score: score.suggestedScore,
+      max_score: score.maxScore,
+      comment: score.comment ?? null,
+      evidence: score.evidence ?? null,
+      rubric_criteria: criterion
+        ? { criterion_code: criterion.code, title: criterion.name, description: criterion.description ?? undefined }
+        : null,
+    };
+  });
 
   const artifacts = (submission.artifacts ?? []).map((artifact) => ({
     id: artifact.id,

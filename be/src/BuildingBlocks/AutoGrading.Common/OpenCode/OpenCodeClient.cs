@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace AutoGrading.Common.OpenRouter;
+namespace AutoGrading.Common.OpenCode;
 
 public record GradingCriterionInput(Guid RubricCriterionId, string Name, decimal MaxScore);
 
@@ -18,12 +18,14 @@ public record GradingCriterionResult(
 
 public record ExtractedRubricCriterion(string Name, string? Description, decimal MaxScore, int Order);
 
-public interface IOpenRouterClient
+public interface IOpenCodeClient
 {
     Task<IReadOnlyList<GradingCriterionResult>> GradeAsync(
         string reportContent,
         string diagramContent,
         IReadOnlyList<GradingCriterionInput> criteria,
+        string? assignmentDescription,
+        IReadOnlyList<string>? images,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ExtractedRubricCriterion>> ParseRubricCriteriaAsync(
@@ -32,17 +34,19 @@ public interface IOpenRouterClient
 }
 
 /// <summary>
-/// Calls OpenRouter for AI grading and rubric-criteria extraction when an API key is configured;
+/// Calls OpenCode for AI grading and rubric-criteria extraction when an API key is configured;
 /// otherwise falls back to a deterministic stub so callers are exercisable without external credentials.
 /// </summary>
-public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions> options, ILogger<OpenRouterClient> logger) : IOpenRouterClient
+public class OpenCodeClient(HttpClient httpClient, IOptions<OpenCodeOptions> options, ILogger<OpenCodeClient> logger) : IOpenCodeClient
 {
-    private readonly OpenRouterOptions _options = options.Value;
+    private readonly OpenCodeOptions _options = options.Value;
 
     public async Task<IReadOnlyList<GradingCriterionResult>> GradeAsync(
         string reportContent,
         string diagramContent,
         IReadOnlyList<GradingCriterionInput> criteria,
+        string? assignmentDescription,
+        IReadOnlyList<string>? images,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
@@ -50,7 +54,7 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
             return StubGrade(criteria);
         }
 
-        var prompt = BuildGradingPrompt(reportContent, diagramContent, criteria);
+        var prompt = BuildGradingPrompt(reportContent, diagramContent, criteria, assignmentDescription);
         var payload = await SendChatCompletionAsync(prompt, cancellationToken);
         var parsed = TryParseGradingResponse(payload, criteria);
 
@@ -63,7 +67,7 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
-            return StubRubricCriteria("Stub criterion (no OpenRouter API key configured).");
+            return StubRubricCriteria("Stub criterion (no OpenCode API key configured).");
         }
 
         var prompt = BuildRubricExtractionPrompt(documentText);
@@ -76,7 +80,7 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
         }
 
         logger.LogWarning(
-            "OpenRouterClient: rubric-criteria extraction response could not be parsed into valid criteria; falling back to stub. Response length: {PayloadLength}",
+            "OpenCodeClient: rubric-criteria extraction response could not be parsed into valid criteria; falling back to stub. Response length: {PayloadLength}",
             payload.Length);
 
         return StubRubricCriteria("AI extraction could not parse a valid response for this document; add criteria manually.");
@@ -106,17 +110,21 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
 
-    private static string BuildGradingPrompt(string reportContent, string diagramContent, IReadOnlyList<GradingCriterionInput> criteria)
+    private static string BuildGradingPrompt(string reportContent, string diagramContent, IReadOnlyList<GradingCriterionInput> criteria, string? assignmentDescription)
     {
         var criteriaText = string.Join(
             "\n",
             criteria.Select(c => $"- {c.RubricCriterionId}: {c.Name} (max {c.MaxScore})"));
 
+        var assignmentSection = string.IsNullOrWhiteSpace(assignmentDescription)
+            ? string.Empty
+            : $"\nAssignment description:\n{assignmentDescription}\n";
+
         return $"""
                 Grade the following submission against the rubric criteria below.
                 Respond with a JSON array, one object per criterion, each with fields:
                 rubricCriterionId, suggestedScore, deductions, evidence, comment, confidence (0-1).
-
+                {assignmentSection}
                 Rubric criteria:
                 {criteriaText}
 
@@ -263,7 +271,7 @@ public class OpenRouterClient(HttpClient httpClient, IOptions<OpenRouterOptions>
                 c.MaxScore,
                 Math.Round(c.MaxScore * 0.8m, 2),
                 Deductions: null,
-                Evidence: "Stub grading (no OpenRouter API key configured).",
+                Evidence: "Stub grading (no OpenCode API key configured).",
                 Comment: "Automatically generated stub score.",
                 Confidence: 0.5m))
             .ToList();

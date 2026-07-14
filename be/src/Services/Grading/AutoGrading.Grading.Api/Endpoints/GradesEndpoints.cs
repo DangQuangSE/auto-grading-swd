@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
+using AutoGrading.Grading.Api.Clients;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
+using AutoGrading.Grading.Api.Jobs;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Grading.Api.Endpoints;
@@ -39,6 +42,9 @@ public static class GradesEndpoints
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
 
         group.MapPost("/{submissionId:guid}/publish", PublishGradeAsync)
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
+        group.MapPost("/{submissionId:guid}/regrade", RegradeAsync)
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
 
         return app;
@@ -85,6 +91,17 @@ public static class GradesEndpoints
         return parsed.Count > 0 ? parsed : null;
     }
 
+    private static IResult RegradeAsync(
+        Guid submissionId,
+        RegradeRequest request,
+        IBackgroundJobClient backgroundJobs)
+    {
+        backgroundJobs.Enqueue<AiGradingJob>(job =>
+            job.ExecuteAsync(submissionId, request.AssignmentDescription, CancellationToken.None));
+
+        return Results.Accepted($"/grades/{submissionId}/runs");
+    }
+
     private static async Task<IResult> PublishGradeAsync(
         Guid submissionId,
         PublishGradeRequest request,
@@ -123,6 +140,7 @@ public static class GradesEndpoints
     }
 }
 
+public sealed record RegradeRequest(string? AssignmentDescription);
 public sealed record PublishGradeRequest(Guid? GradingRunId, decimal FinalScore, string? Notes);
 
 public sealed record FinalGradeResponse(Guid SubmissionId, Guid FinalGradeId, decimal FinalScore, DateTimeOffset CreatedAt);

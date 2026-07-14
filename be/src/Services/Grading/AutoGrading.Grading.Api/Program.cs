@@ -2,12 +2,14 @@ using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Jobs;
 using AutoGrading.Common.Messaging;
+using AutoGrading.Common.OpenCode;
 using AutoGrading.Contracts.Events;
+using AutoGrading.Grading.Api.Clients;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Endpoints;
 using AutoGrading.Grading.Api.Handlers;
 using AutoGrading.Grading.Api.Jobs;
-using AutoGrading.Common.OpenRouter;
+using AutoGrading.Grading.Api.OpenCode;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -21,13 +23,26 @@ builder.Services.AddDbContext<GradingDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("GradingDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddJwtTokenGenerator(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
-builder.Services.AddOpenRouterClient(builder.Configuration);
-builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value);
+builder.Services.Configure<OpenCodeOptions>(builder.Configuration.GetSection(OpenCodeOptions.SectionName));
+builder.Services.AddHttpClient<IOpenCodeClient, AutoGrading.Grading.Api.OpenCode.OpenCodeClient>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<OpenCodeOptions>>().Value);
+
+builder.Services.Configure<ServicesOptions>(builder.Configuration.GetSection(ServicesOptions.SectionName));
+var servicesOptions = builder.Configuration.GetSection(ServicesOptions.SectionName).Get<ServicesOptions>() ?? new ServicesOptions();
+
+builder.Services.AddTransient<ServiceAuthHandler>();
+builder.Services.AddHttpClient<ICatalogApiClient, CatalogApiClient>(client =>
+        client.BaseAddress = new Uri(servicesOptions.CatalogApiBaseUrl))
+    .AddHttpMessageHandler<ServiceAuthHandler>();
+builder.Services.AddHttpClient<ISubmissionApiClient, SubmissionApiClient>(client =>
+        client.BaseAddress = new Uri(servicesOptions.SubmissionApiBaseUrl))
+    .AddHttpMessageHandler<ServiceAuthHandler>();
 
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();

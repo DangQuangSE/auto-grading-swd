@@ -1,6 +1,12 @@
 import { finalCriterionScoreSchema } from "../lib/validation";
 import { apiGet, apiPost } from "../lib/apiClient";
 
+export async function triggerRegrade(params: { submissionId: string; assignmentDescription?: string | null }) {
+  return apiPost(`/grading/grades/${params.submissionId}/regrade`, {
+    assignmentDescription: params.assignmentDescription ?? null,
+  });
+}
+
 export type SaveFinalScoreInput = {
   submissionId: string;
   criterionId: string;

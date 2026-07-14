@@ -1,7 +1,7 @@
 using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
 using AutoGrading.Common.Messaging;
-using AutoGrading.Common.OpenRouter;
+using AutoGrading.Common.OpenCode;
 using AutoGrading.Common.Storage;
 using AutoGrading.Contracts.Events;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +15,7 @@ namespace AutoGrading.Catalog.Api.Jobs;
 public sealed class RubricParsingJob(
     CatalogDbContext db,
     IObjectStorage storage,
-    IOpenRouterClient openRouterClient,
+    IOpenCodeClient openCodeClient,
     IEventBus eventBus,
     ILogger<RubricParsingJob> logger)
 {
@@ -51,7 +51,7 @@ public sealed class RubricParsingJob(
                 documentText = DocxTextExtractor.ExtractText(fileStream);
             }
 
-            var extractedCriteria = await openRouterClient.ParseRubricCriteriaAsync(documentText, cancellationToken);
+            var extractedCriteria = await openCodeClient.ParseRubricCriteriaAsync(documentText, cancellationToken);
 
             var newCriteria = db.ReplaceRubricCriteria(rubric, extractedCriteria.Select(criterion => new RubricCriterion
             {

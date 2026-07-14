@@ -10,10 +10,10 @@ import {
 
 const RUBRICS_QUERY_KEY = ["rubrics"];
 
-export function useRubrics() {
+export function useRubrics(subjectId?: string, assignmentId?: string | null) {
   return useQuery({
-    queryKey: RUBRICS_QUERY_KEY,
-    queryFn: () => listRubrics(),
+    queryKey: ["rubrics", subjectId ?? null, assignmentId ?? null],
+    queryFn: () => listRubrics({ subjectId, assignmentId }),
     refetchInterval: (query) => ((query.state.data ?? []).some((rubric) => rubric.status === "parsing") ? 2000 : false),
   });
 }

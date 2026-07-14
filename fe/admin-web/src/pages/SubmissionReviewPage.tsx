@@ -1,11 +1,12 @@
-import { Save, Send } from "lucide-react";
+import { RefreshCw, Save, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/ui/Button";
+import { Field, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
-import { usePublishGrade, useRecentSubmissions, useSaveFinalScore, useSubmissionReview } from "../hooks/useSubmissions";
+import { usePublishGrade, useRecentSubmissions, useRegrade, useSaveFinalScore, useSubmissionReview } from "../hooks/useSubmissions";
 import { useAuth } from "../providers/AuthProvider";
 
 type ReviewScore = {
@@ -52,7 +53,9 @@ export function SubmissionReviewPage() {
   const review = useSubmissionReview(submissionId);
   const saveFinalScore = useSaveFinalScore();
   const publishGrade = usePublishGrade();
+  const regrade = useRegrade();
   const [finalScores, setFinalScores] = useState<Record<string, number>>({});
+  const [assignmentDescription, setAssignmentDescription] = useState("");
 
   const aiScores = useMemo(
     () => ((review.data?.aiScores ?? []) as unknown as ReviewScore[]),
@@ -65,6 +68,11 @@ export function SubmissionReviewPage() {
       Object.fromEntries(aiScores.map((score) => [score.rubric_criterion_id, Number(score.suggested_score)])),
     );
   }, [aiScores]);
+
+  async function handleRegrade() {
+    if (!submissionId) return;
+    await regrade.mutateAsync({ submissionId, assignmentDescription: assignmentDescription || null });
+  }
 
   async function handleSave() {
     if (!submissionId || !session) {
@@ -207,6 +215,18 @@ export function SubmissionReviewPage() {
           {publishGrade.error ? <FormMessage tone="error">{publishGrade.error.message}</FormMessage> : null}
           {saveFinalScore.isSuccess ? <FormMessage tone="success">Final scores saved.</FormMessage> : null}
           {publishGrade.isSuccess ? <FormMessage tone="success">Grade published.</FormMessage> : null}
+          <hr />
+          <h3>Regrade with assignment description (mã đề)</h3>
+          <Field label="Assignment description">
+            <TextInput
+              type="text"
+              value={assignmentDescription}
+              onChange={(e) => setAssignmentDescription(e.target.value)}
+              placeholder="Paste assignment brief / mã đề here to improve AI grading accuracy"
+            />
+          </Field>
+          {regrade.error ? <FormMessage tone="error">{regrade.error.message}</FormMessage> : null}
+          {regrade.isSuccess ? <FormMessage tone="success">Regrade queued — scores will refresh shortly.</FormMessage> : null}
           <div className="button-row">
             <Button variant="secondary" type="button" onClick={handleSave} disabled={aiScores.length === 0 || saveFinalScore.isPending}>
               <Save aria-hidden="true" />
@@ -215,6 +235,10 @@ export function SubmissionReviewPage() {
             <Button type="button" onClick={handlePublish} disabled={publishGrade.isPending}>
               <Send aria-hidden="true" />
               {publishGrade.isPending ? "Publishing..." : "Publish"}
+            </Button>
+            <Button variant="secondary" type="button" onClick={handleRegrade} disabled={regrade.isPending}>
+              <RefreshCw aria-hidden="true" />
+              {regrade.isPending ? "Regrading..." : "Regrade"}
             </Button>
           </div>
         </section>

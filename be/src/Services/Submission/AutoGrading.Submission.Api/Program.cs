@@ -25,7 +25,9 @@ builder.Services.AddObjectStorage(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
-builder.Services.AddScoped<IArtifactParser, StubArtifactParser>();
+builder.Services.AddScoped<DocxReportParser>();
+builder.Services.AddScoped<DrawioDiagramParser>();
+builder.Services.AddScoped<IArtifactParser, ArtifactParser>();
 builder.Services.AddScoped<ExtractionJob>();
 builder.Services.AddScoped<SubmissionUploadedHandler>();
 
