@@ -37,7 +37,21 @@ public sealed class RabbitMqEventBus : IEventBus, IDisposable
             DispatchConsumersAsync = true,
         };
 
-        _connection = factory.CreateConnection();
+        var retries = 5;
+        while (true)
+        {
+            try
+            {
+                _connection = factory.CreateConnection();
+                break;
+            }
+            catch (RabbitMQ.Client.Exceptions.BrokerUnreachableException) when (retries > 0)
+            {
+                retries--;
+                Thread.Sleep(3000);
+            }
+        }
+
         _channel = _connection.CreateModel();
         _channel.ExchangeDeclare(_options.Exchange, ExchangeType.Topic, durable: true);
     }
