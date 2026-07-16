@@ -3,11 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/ui/Button";
-import { Field, TextInput } from "../components/ui/Field";
+import { Field, TextInput, SelectInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
+import { useClasses } from "../hooks/useClasses";
+import { useGradeTable } from "../hooks/useGradeTable";
+import { useSubjects, useAssignments } from "../hooks/useSubjects";
 import { usePublishGrade, useRecentSubmissions, useRegrade, useSaveFinalScore, useSubmissionReview } from "../hooks/useSubmissions";
 import { useAuth } from "../providers/AuthProvider";
+
+function matchesFilter(value: string | null, query: string): boolean {
+  return (value ?? "").toLowerCase().includes(query.trim().toLowerCase());
+}
 
 type ReviewScore = {
   id: string;
@@ -56,6 +63,16 @@ export function SubmissionReviewPage() {
   const regrade = useRegrade();
   const [finalScores, setFinalScores] = useState<Record<string, number>>({});
   const [assignmentDescription, setAssignmentDescription] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [assignmentId, setAssignmentId] = useState("");
+  const [mssvFilter, setMssvFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+
+  const subjects = useSubjects({ pageSize: 1000 });
+  const assignments = useAssignments(subjectId, { pageSize: 1000 });
+  const classes = useClasses();
+  
+  const gradeTable = useGradeTable(assignmentId || undefined);
 
   const aiScores = useMemo(
     () => ((review.data?.aiScores ?? []) as unknown as ReviewScore[]),
@@ -101,46 +118,134 @@ export function SubmissionReviewPage() {
   }
 
   if (!submissionId) {
-    const rows = recentSubmissions.data ?? [];
+    const recentRows = recentSubmissions.data ?? [];
+    const filteredRows = (gradeTable.data ?? []).filter(
+      (row) => matchesFilter(row.mssv, mssvFilter) && matchesFilter(row.className, classFilter),
+    );
 
     return (
-      <section className="page-grid">
+      <section className="page-grid compact-page">
         <header className="page-header">
           <p>Review</p>
           <h1>Select a submission</h1>
         </header>
-        <div className="table-panel">
-          {recentSubmissions.isLoading ? <StateBlock title="Loading submissions" /> : null}
-          {rows.length === 0 && !recentSubmissions.isLoading ? (
-            <StateBlock title="No submissions to review" detail="Once students submit files, review links will appear here." />
-          ) : null}
-          {rows.length > 0 ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Submission</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>Open</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.id.slice(0, 8)}</td>
-                    <td>
-                      <StatusBadge state={row.state} />
-                    </td>
-                    <td>{new Date(row.submitted_at).toLocaleString()}</td>
-                    <td>
-                      <Link to={`/review/${row.id}`}>Review</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
+        
+        <div className="form-panel">
+          <Field label="Subject">
+            <SelectInput value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setAssignmentId(""); }}>
+              <option value="">All subjects</option>
+              {(subjects.data?.items ?? []).map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.code} - {subject.name}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Assignment">
+            <SelectInput value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}>
+              <option value="">Select an assignment</option>
+              {(assignments.data?.items ?? []).map((assignment) => (
+                <option key={assignment.id} value={assignment.id}>
+                  {assignment.title}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
         </div>
+
+        {!assignmentId ? (
+          <div className="table-panel">
+            {recentSubmissions.isLoading ? <StateBlock title="Loading submissions" /> : null}
+            {recentRows.length === 0 && !recentSubmissions.isLoading ? (
+              <StateBlock title="No submissions to review" detail="Once students submit files, review links will appear here." />
+            ) : null}
+            {recentRows.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Submission</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.id.slice(0, 8)}</td>
+                      <td>
+                        <StatusBadge state={row.state as any} />
+                      </td>
+                      <td>{new Date(row.submitted_at).toLocaleString()}</td>
+                      <td>
+                        <Link to={`/review/${row.id}`}>Review</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+        ) : (
+          <div className="table-panel">
+            <div className="filter-bar">
+              <Field label="Filter by MSSV">
+                <TextInput value={mssvFilter} onChange={(event) => setMssvFilter(event.target.value)} placeholder="SE123456" />
+              </Field>
+              <Field label="Filter by class">
+                <SelectInput value={classFilter} onChange={(event) => setClassFilter(event.target.value)}>
+                  <option value="">All classes</option>
+                  {(classes.data ?? []).map((klass) => (
+                    <option key={klass.id} value={klass.name}>
+                      {klass.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+            </div>
+            
+            {gradeTable.isLoading ? <StateBlock title="Loading submissions" /> : null}
+            {gradeTable.data && gradeTable.data.length === 0 ? (
+              <StateBlock title="No submissions for this assignment" />
+            ) : null}
+            {gradeTable.data && gradeTable.data.length > 0 && filteredRows.length === 0 ? (
+              <StateBlock title="No results match the current filters" />
+            ) : null}
+
+            {filteredRows.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Submission</th>
+                    <th>Student Name</th>
+                    <th>MSSV</th>
+                    <th>Class</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map((row) => (
+                    <tr key={row.submissionId}>
+                      <td>{row.submissionId.slice(0, 8)}</td>
+                      <td>{row.studentName}</td>
+                      <td>{row.mssv || "-"}</td>
+                      <td>{row.className || "-"}</td>
+                      <td>
+                        <StatusBadge state={row.state as any} />
+                      </td>
+                      <td>{new Date(row.submittedAt).toLocaleString()}</td>
+                      <td>
+                        <Link to={`/review/${row.submissionId}`}>Review</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+        )}
       </section>
     );
   }

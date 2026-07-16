@@ -45,6 +45,7 @@ export function RosterPage() {
 
   const filtered = (users.data ?? []).filter(
     (user) =>
+      user.role === "student" &&
       matchesFilter(user.email, emailFilter) &&
       matchesFilter(user.className, classFilter) &&
       matchesFilter(user.studentCode, mssvFilter),

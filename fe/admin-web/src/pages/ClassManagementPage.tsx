@@ -6,6 +6,20 @@ import { Field, SelectInput, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
 import { useClasses, useCreateClass, useLecturers, useUpdateClassLecturer } from "../hooks/useClasses";
+import { ApiError } from "../lib/apiClient";
+
+function describeError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403) {
+      return "You do not have permission. This action is restricted to Administrators.";
+    }
+    if (error.status >= 500) {
+      return "Something went wrong. Please try again.";
+    }
+    return error.message || "Request failed. Please try again.";
+  }
+  return "Something went wrong. Please try again.";
+}
 
 function lecturerLabel(lecturer: { fullName: string; email: string } | undefined, lecturerId: string | null) {
   if (!lecturerId) {
@@ -93,7 +107,7 @@ export function ClassManagementPage() {
             ))}
           </SelectInput>
         </Field>
-        {createClass.error ? <FormMessage tone="error">{createClass.error.message}</FormMessage> : null}
+        {createClass.error ? <FormMessage tone="error">{describeError(createClass.error)}</FormMessage> : null}
         <Button type="submit" disabled={!name.trim() || !lecturerId || createClass.isPending}>
           <Plus aria-hidden="true" />
           {createClass.isPending ? "Creating..." : "Create class"}
@@ -164,7 +178,7 @@ export function ClassManagementPage() {
             </tbody>
           </table>
         ) : null}
-        {updateLecturer.error ? <FormMessage tone="error">{updateLecturer.error.message}</FormMessage> : null}
+        {updateLecturer.error ? <FormMessage tone="error">{describeError(updateLecturer.error)}</FormMessage> : null}
       </div>
     </section>
   );
