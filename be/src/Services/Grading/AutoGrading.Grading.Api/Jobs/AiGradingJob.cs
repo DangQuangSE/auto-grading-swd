@@ -39,6 +39,10 @@ public sealed class AiGradingJob(
             var submission = await submissionApiClient.GetSubmissionAsync(submissionId, cancellationToken)
                 ?? throw new InvalidOperationException($"Submission {submissionId} was not found.");
 
+            await eventBus.PublishAsync(
+                new SubmissionStatusChanged(submission.Id, submission.StudentId, "AiGrading"),
+                cancellationToken);
+
             var rubricCriteria = await catalogApiClient.GetCriteriaForAssignmentAsync(submission.AssignmentId, cancellationToken);
 
             // Fall back to a single general criterion when no rubric has been uploaded yet
@@ -89,12 +93,31 @@ public sealed class AiGradingJob(
             await eventBus.PublishAsync(
                 new AiGradingCompleted(submissionId, run.Id, totalScore),
                 cancellationToken);
+
+            await eventBus.PublishAsync(
+                new SubmissionStatusChanged(submission.Id, submission.StudentId, "Completed"),
+                cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             run.Status = AiGradingRunStatus.Failed;
             run.CompletedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
+
+            // We may not have StudentId if it failed before fetching submission. 
+            // Attempt to get it if possible, otherwise we can't notify the user effectively.
+            // Since this is a background job, we'll just try to fetch it for the event if we don't have it.
+            try 
+            {
+                var submission = await submissionApiClient.GetSubmissionAsync(submissionId, cancellationToken);
+                if (submission != null) 
+                {
+                    await eventBus.PublishAsync(
+                        new SubmissionStatusChanged(submission.Id, submission.StudentId, "AiGradingFailed", ex.Message),
+                        cancellationToken);
+                }
+            } catch { /* ignore */ }
+
             throw;
         }
     }

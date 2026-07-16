@@ -5,6 +5,7 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.NotificationSvc.Api.Consumers;
 using AutoGrading.NotificationSvc.Api.Data;
+using AutoGrading.NotificationSvc.Api.Hubs;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,11 +18,13 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<UserRegisteredConsumer>();
 builder.Services.AddScoped<AiGradingCompletedConsumer>();
 builder.Services.AddScoped<GradePublishedConsumer>();
 builder.Services.AddScoped<RubricParsedConsumer>();
+builder.Services.AddScoped<SubmissionStatusChangedConsumer>();
 
 builder.Services.AddHealthChecks();
 
@@ -80,11 +83,13 @@ app.MapGet("/audit-events", async (NotificationDbContext db, CancellationToken c
     .RequireAuthorization(policy => policy.RequireRole("admin"));
 
 app.MapHealthChecks("/health");
+app.MapHub<NotificationHub>("/hub");
 
 var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<UserRegistered, UserRegisteredConsumer>();
 eventBus.Subscribe<AiGradingCompleted, AiGradingCompletedConsumer>();
 eventBus.Subscribe<GradePublished, GradePublishedConsumer>();
 eventBus.Subscribe<RubricParsed, RubricParsedConsumer>();
+eventBus.Subscribe<SubmissionStatusChanged, SubmissionStatusChangedConsumer>();
 
 app.Run();

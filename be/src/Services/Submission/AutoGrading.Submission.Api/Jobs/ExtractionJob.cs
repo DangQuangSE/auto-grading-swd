@@ -34,6 +34,10 @@ public sealed class ExtractionJob(
         submission.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
+        await eventBus.PublishAsync(
+            new SubmissionStatusChanged(submission.Id, submission.StudentId, "Extracting"),
+            cancellationToken);
+
         var warnings = new List<string>();
         var success = true;
 
@@ -79,5 +83,12 @@ public sealed class ExtractionJob(
         await eventBus.PublishAsync(
             new ArtifactsExtracted(submission.Id, submission.AssignmentId, success, warnings.ToArray()),
             cancellationToken);
+
+        if (!success)
+        {
+            await eventBus.PublishAsync(
+                new SubmissionStatusChanged(submission.Id, submission.StudentId, "ExtractionFailed", string.Join("; ", warnings)),
+                cancellationToken);
+        }
     }
 }

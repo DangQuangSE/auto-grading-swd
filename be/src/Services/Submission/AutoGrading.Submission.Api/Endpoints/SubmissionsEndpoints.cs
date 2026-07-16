@@ -3,6 +3,8 @@ using AutoGrading.Common.Storage;
 using AutoGrading.Contracts.Events;
 using AutoGrading.SubmissionSvc.Api.Data;
 using AutoGrading.SubmissionSvc.Api.Domain;
+using AutoGrading.SubmissionSvc.Api.Jobs;
+using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,6 +47,28 @@ public static class SubmissionsEndpoints
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"))
             .DisableAntiforgery();
 
+        group.MapPost("/{id:guid}/retry", async (Guid id, SubmissionDbContext db, IBackgroundJobClient backgroundJobs, CancellationToken ct) =>
+            {
+                var submission = await db.Submissions.FirstOrDefaultAsync(s => s.Id == id, ct);
+                if (submission is null)
+                {
+                    return Results.NotFound();
+                }
+
+                // Clean up previous artifacts
+                var oldArtifacts = await db.ExtractedArtifacts.Where(a => a.SubmissionId == id).ToListAsync(ct);
+                db.ExtractedArtifacts.RemoveRange(oldArtifacts);
+
+                submission.State = SubmissionState.Uploaded;
+                submission.UpdatedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(ct);
+
+                backgroundJobs.Enqueue<ExtractionJob>(j => j.ExecuteAsync(id, CancellationToken.None));
+
+                return Results.Accepted();
+            })
+            .RequireAuthorization();
+
         return app;
     }
 
@@ -83,6 +107,10 @@ public static class SubmissionsEndpoints
 
         await eventBus.PublishAsync(
             new SubmissionUploaded(submission.Id, submission.AssignmentId, submission.StudentId, reportKey, diagramKey),
+            cancellationToken);
+
+        await eventBus.PublishAsync(
+            new SubmissionStatusChanged(submission.Id, submission.StudentId, "Uploaded"),
             cancellationToken);
 
         return Results.Created($"/submissions/{submission.Id}", submission);
