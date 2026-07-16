@@ -8,7 +8,7 @@ import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { useRubrics, useUploadRubric } from "../hooks/useRubrics";
-import { useAssignments, useSubjects } from "../hooks/useSubjects";
+import { useAssignments, useSubjects, useAllAssignments } from "../hooks/useSubjects";
 import { MAX_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
 import { downloadRubricFile, type RubricListItem, type RubricScope } from "../services/rubricService";
@@ -24,11 +24,16 @@ export function RubricUploadPage() {
   const isAdmin = session?.user.role === "admin";
   const subjects = useSubjects({ pageSize: MAX_PAGE_SIZE });
   const assignments = useAssignments(subjectId, { pageSize: MAX_PAGE_SIZE });
+  const allAssignments = useAllAssignments();
   const rubrics = useRubrics(subjectId, assignmentId || null);
   const uploadRubric = useUploadRubric();
   const subjectsById = useMemo(
     () => new Map((subjects.data?.items ?? []).map((subject) => [subject.id, subject])),
     [subjects.data],
+  );
+  const assignmentsById = useMemo(
+    () => new Map((allAssignments.data?.items ?? []).map((assignment) => [assignment.id, assignment])),
+    [allAssignments.data],
   );
   const selectedRubric = (rubrics.data ?? []).find((rubric) => rubric.id === selectedRubricId) ?? null;
 
@@ -141,6 +146,7 @@ export function RubricUploadPage() {
               <tr>
                 <th>Name</th>
                 <th>Subject</th>
+                <th>Assignment</th>
                 <th>Status</th>
                 <th>Uploaded</th>
                 <th></th>
@@ -151,22 +157,25 @@ export function RubricUploadPage() {
                 <tr key={rubric.id}>
                   <td>{rubric.name}</td>
                   <td>{subjectsById.get(rubric.subjectId)?.code ?? "-"}</td>
+                  <td>{rubric.assignmentId ? assignmentsById.get(rubric.assignmentId)?.title ?? "-" : "-"}</td>
                   <td>
                     <StatusBadge status={rubric.status} />
                   </td>
                   <td>{new Date(rubric.createdAt).toLocaleString()}</td>
                   <td>
-                    <Button variant="text" onClick={() => setSelectedRubricId(rubric.id)}>
-                      Manage
-                    </Button>
-                    <Button
-                      variant="text"
-                      onClick={() => handleDownload(rubric)}
-                      disabled={downloadingId === rubric.id}
-                    >
-                      <Download aria-hidden="true" />
-                      {downloadingId === rubric.id ? "Downloading..." : "Download"}
-                    </Button>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <Button variant="text" onClick={() => setSelectedRubricId(rubric.id)}>
+                        Manage
+                      </Button>
+                      <Button
+                        variant="text"
+                        onClick={() => handleDownload(rubric)}
+                        disabled={downloadingId === rubric.id}
+                      >
+                        <Download aria-hidden="true" />
+                        {downloadingId === rubric.id ? "Downloading..." : "Download"}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

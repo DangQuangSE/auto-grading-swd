@@ -116,7 +116,14 @@ export function RosterPage() {
             <TextInput value={mssvFilter} onChange={handleFilterChange(setMssvFilter)} placeholder="SE123456" />
           </Field>
           <Field label="Filter by class">
-            <TextInput value={classFilter} onChange={handleFilterChange(setClassFilter)} placeholder="SE1801" />
+            <SelectInput value={classFilter} onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}>
+              <option value="">All classes</option>
+              {(classes.data ?? []).map((klass) => (
+                <option key={klass.id} value={klass.name}>
+                  {klass.name}
+                </option>
+              ))}
+            </SelectInput>
           </Field>
         </div>
         {users.isLoading ? <StateBlock title="Loading students" /> : null}
