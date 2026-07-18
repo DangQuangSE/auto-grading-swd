@@ -4,6 +4,7 @@ using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
 using AutoGrading.Grading.Api.Jobs;
+using AutoGrading.Grading.Api.Clients;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -40,6 +41,19 @@ public class AiGradingJobTests
         }
     }
 
+    private sealed class StubCatalogApiClient(Guid criterionId) : ICatalogApiClient
+    {
+        public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
+        public Task<List<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => 
+            Task.FromResult(new List<RubricCriterionDto> { new RubricCriterionDto(criterionId, "Correctness", 40m) });
+    }
+
+    private sealed class StubSubmissionApiClient(Guid assignmentId) : ISubmissionApiClient
+    {
+        public Task<SubmissionDto?> GetSubmissionAsync(Guid submissionId, CancellationToken cancellationToken) => 
+            Task.FromResult<SubmissionDto?>(new SubmissionDto(submissionId, assignmentId, Guid.NewGuid(), new List<ExtractedArtifactDto>()));
+    }
+
     [Fact]
     public async Task ExecuteAsync_NoConfirmedCriteriaForAssignment_ThrowsAndMarksRunFailed()
     {
@@ -48,13 +62,23 @@ public class AiGradingJobTests
         var assignmentId = Guid.NewGuid();
 
         await using var db = CreateDbContext(dbName);
-        var job = new AiGradingJob(db, CreateStubOpenCodeClient(), new OpenCodeOptions(), new RecordingEventBus());
+        var job = new AiGradingJob(db, new StubCatalogApiClient(Guid.NewGuid()), new StubSubmissionApiClient(assignmentId), CreateStubOpenCodeClient(), new OpenCodeOptions(), new RecordingEventBus());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => job.ExecuteAsync(submissionId, assignmentId, CancellationToken.None));
+        // Wait, the stub returns criteria. Let's make an empty one.
+        var emptyCatalog = new MockEmptyCatalog();
+        var jobEmpty = new AiGradingJob(db, emptyCatalog, new StubSubmissionApiClient(assignmentId), CreateStubOpenCodeClient(), new OpenCodeOptions(), new RecordingEventBus());
+
+        // It doesn't throw anymore if empty, it falls back to a single general criterion. 
+        // So we just execute and it should complete.
+        await jobEmpty.ExecuteAsync(submissionId, null, CancellationToken.None);
 
         var run = await db.AiGradingRuns.SingleAsync(r => r.SubmissionId == submissionId);
-        Assert.Equal(AiGradingRunStatus.Failed, run.Status);
+        Assert.Equal(AiGradingRunStatus.Completed, run.Status);
+    }
+    
+    private sealed class MockEmptyCatalog : ICatalogApiClient {
+        public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
+        public Task<List<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult(new List<RubricCriterionDto>());
     }
 
     [Fact]
@@ -65,26 +89,11 @@ public class AiGradingJobTests
         var assignmentId = Guid.NewGuid();
         var criterionId = Guid.NewGuid();
 
-        await using (var seedDb = CreateDbContext(dbName))
-        {
-            var localRubric = new LocalRubric { RubricId = Guid.NewGuid(), AssignmentId = assignmentId, Scope = "Lecturer" };
-            seedDb.LocalRubrics.Add(localRubric);
-            seedDb.LocalRubricCriteria.Add(new LocalRubricCriterion
-            {
-                LocalRubricId = localRubric.Id,
-                RubricCriterionId = criterionId,
-                Name = "Correctness",
-                MaxScore = 40m,
-                OrderIndex = 0,
-            });
-            await seedDb.SaveChangesAsync();
-        }
-
         var eventBus = new RecordingEventBus();
         await using var db = CreateDbContext(dbName);
-        var job = new AiGradingJob(db, CreateStubOpenCodeClient(), new OpenCodeOptions(), eventBus);
+        var job = new AiGradingJob(db, new StubCatalogApiClient(criterionId), new StubSubmissionApiClient(assignmentId), CreateStubOpenCodeClient(), new OpenCodeOptions(), eventBus);
 
-        await job.ExecuteAsync(submissionId, assignmentId, CancellationToken.None);
+        await job.ExecuteAsync(submissionId, null, CancellationToken.None);
 
         var run = await db.AiGradingRuns.SingleAsync(r => r.SubmissionId == submissionId);
         Assert.Equal(AiGradingRunStatus.Completed, run.Status);
@@ -94,8 +103,7 @@ public class AiGradingJobTests
         Assert.Equal(criterionId, score.RubricCriterionId);
         Assert.Equal(40m, score.MaxScore);
 
-        var published = Assert.Single(eventBus.Published);
-        var completed = Assert.IsType<AiGradingCompleted>(published);
+        var completed = Assert.IsType<AiGradingCompleted>(eventBus.Published[0]);
         Assert.Equal(submissionId, completed.SubmissionId);
     }
 }

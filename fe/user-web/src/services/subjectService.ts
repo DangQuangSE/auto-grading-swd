@@ -30,9 +30,10 @@ export async function listSubjects() {
   return [...result.items].sort((a, b) => a.code.localeCompare(b.code));
 }
 
-export async function listAssignments(subjectId: string) {
-  const result = await apiGet<PagedResult<Assignment>>(
-    `/catalog/assignments?subjectId=${subjectId}&pageSize=${MAX_PAGE_SIZE}`,
-  );
+export async function listAssignments(subjectId?: string) {
+  const url = subjectId 
+    ? `/catalog/assignments?subjectId=${subjectId}&pageSize=${MAX_PAGE_SIZE}`
+    : `/catalog/assignments?pageSize=${MAX_PAGE_SIZE}`;
+  const result = await apiGet<PagedResult<Assignment>>(url);
   return [...result.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

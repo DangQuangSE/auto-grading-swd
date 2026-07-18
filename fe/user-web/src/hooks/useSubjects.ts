@@ -15,3 +15,10 @@ export function useAssignments(subjectId?: string) {
     enabled: Boolean(subjectId),
   });
 }
+
+export function useAllAssignments() {
+  return useQuery({
+    queryKey: ["all-assignments"],
+    queryFn: () => listAssignments(),
+  });
+}

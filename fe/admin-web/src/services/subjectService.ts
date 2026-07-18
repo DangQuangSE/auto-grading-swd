@@ -32,14 +32,17 @@ export async function createSubject(params: { code: string; name: string; create
   return apiPost<Subject>("/catalog/subjects", { code: params.code, name: params.name });
 }
 
-export async function listAssignments(params: { subjectId: string; page?: number; pageSize?: number }) {
+export async function listAssignments(params: { subjectId?: string; page?: number; pageSize?: number }) {
   const page = params.page ?? DEFAULT_PAGE;
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
   const query = new URLSearchParams({
-    subjectId: params.subjectId,
     page: String(page),
     pageSize: String(pageSize),
   });
+  
+  if (params.subjectId) {
+    query.set("subjectId", params.subjectId);
+  }
 
   return apiGet<PagedResult<Assignment>>(`/catalog/assignments?${query.toString()}`);
 }

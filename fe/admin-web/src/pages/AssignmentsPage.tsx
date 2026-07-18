@@ -92,49 +92,45 @@ export function AssignmentsPage() {
           {createAssignment.isPending ? "Creating..." : "Create assignment"}
         </Button>
       </form>
-      {subjectId ? (
-        <div className="table-panel">
-          {assignments.isLoading ? <StateBlock title="Loading assignments" /> : null}
-          {assignments.error ? <FormMessage tone="error">{assignments.error.message}</FormMessage> : null}
-          {assignments.data && assignments.data.items.length === 0 ? (
-            <StateBlock title="No assignments yet" detail="Create an assignment to start uploading rubrics for it." />
-          ) : null}
-          {assignments.data && assignments.data.items.length > 0 ? (
-            <>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Description</th>
-                    <th>Due date</th>
-                    <th>Created</th>
+      <div className="table-panel">
+        {assignments.isLoading ? <StateBlock title="Loading assignments" /> : null}
+        {assignments.error ? <FormMessage tone="error">{assignments.error.message}</FormMessage> : null}
+        {assignments.data && assignments.data.items.length === 0 ? (
+          <StateBlock title="No assignments yet" detail={subjectId ? "Create an assignment to start uploading rubrics for it." : "Select a subject to create your first assignment."} />
+        ) : null}
+        {assignments.data && assignments.data.items.length > 0 ? (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Description</th>
+                  <th>Due date</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.data.items.map((assignment) => (
+                  <tr key={assignment.id}>
+                    <td>{assignment.title}</td>
+                    <td>{assignment.description || "-"}</td>
+                    <td>{assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : "-"}</td>
+                    <td>{new Date(assignment.createdAt).toLocaleString()}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {assignments.data.items.map((assignment) => (
-                    <tr key={assignment.id}>
-                      <td>{assignment.title}</td>
-                      <td>{assignment.description || "-"}</td>
-                      <td>{assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : "-"}</td>
-                      <td>{new Date(assignment.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination
-                page={assignments.data.page}
-                pageSize={assignments.data.pageSize}
-                totalCount={assignments.data.totalCount}
-                totalPages={assignments.data.totalPages}
-                onPageChange={setPage}
-                onPageSizeChange={handlePageSizeChange}
-              />
-            </>
-          ) : null}
-        </div>
-      ) : (
-        <StateBlock title="Select a subject" detail="Choose a subject above to manage its assignments." />
-      )}
+                ))}
+              </tbody>
+            </table>
+            <Pagination
+              page={assignments.data.page}
+              pageSize={assignments.data.pageSize}
+              totalCount={assignments.data.totalCount}
+              totalPages={assignments.data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -30,8 +30,7 @@ export function useAssignments(subjectId?: string, params: { page?: number; page
 
   return useQuery({
     queryKey: ["assignments", subjectId, page, pageSize],
-    queryFn: () => listAssignments({ subjectId: subjectId!, page, pageSize }),
-    enabled: Boolean(subjectId),
+    queryFn: () => listAssignments({ subjectId, page, pageSize }),
     placeholderData: keepPreviousData,
   });
 }
@@ -42,6 +41,14 @@ export function useCreateAssignment() {
     mutationFn: createAssignment,
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["assignments", variables.subjectId] });
+      await queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
     },
+  });
+}
+
+export function useAllAssignments() {
+  return useQuery({
+    queryKey: ["all-assignments"],
+    queryFn: () => listAssignments({}),
   });
 }

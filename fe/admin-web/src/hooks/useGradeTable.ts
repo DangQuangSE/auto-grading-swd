@@ -9,6 +9,8 @@ export type GradeTableRow = {
   mssv: string | null;
   className: string | null;
   finalScore: number | null;
+  state: string;
+  submittedAt: string;
 };
 
 export function useAssignmentsForExport() {
@@ -39,6 +41,8 @@ export function useGradeTable(assignmentId: string | undefined) {
           mssv: user?.studentCode ?? null,
           className: user?.className ?? null,
           finalScore: gradeBySubmissionId.get(submission.id)?.finalScore ?? null,
+          state: submission.state,
+          submittedAt: submission.createdAt,
         };
       });
     },

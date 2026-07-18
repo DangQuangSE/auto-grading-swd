@@ -5,7 +5,9 @@ import { Button } from "../components/ui/Button";
 import { Field, SelectInput, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { StateBlock } from "../components/ui/StateBlock";
-import { useAssignmentsForExport, useGradeTable, type GradeTableRow } from "../hooks/useGradeTable";
+import { useGradeTable, type GradeTableRow } from "../hooks/useGradeTable";
+import { useSubjects, useAssignments } from "../hooks/useSubjects";
+import { useClasses } from "../hooks/useClasses";
 import { ApiError } from "../lib/apiClient";
 import { sanitizeSpreadsheetCell } from "../lib/validation";
 
@@ -47,11 +49,15 @@ export function GradeExportPage() {
   const [assignmentId, setAssignmentId] = useState("");
   const [mssvFilter, setMssvFilter] = useState("");
   const [classFilter, setClassFilter] = useState("");
+  const [subjectId, setSubjectId] = useState("");
 
-  const assignments = useAssignmentsForExport();
+  const subjects = useSubjects({ pageSize: 1000 });
+  const assignments = useAssignments(subjectId, { pageSize: 1000 });
+  const classes = useClasses();
+  
   const gradeTable = useGradeTable(assignmentId || undefined);
 
-  const selectedAssignment = (assignments.data ?? []).find((assignment) => assignment.id === assignmentId) ?? null;
+  const selectedAssignment = (assignments.data?.items ?? []).find((assignment) => assignment.id === assignmentId) ?? null;
 
   const filteredRows = (gradeTable.data ?? []).filter(
     (row) => matchesFilter(row.mssv, mssvFilter) && matchesFilter(row.className, classFilter),
@@ -64,10 +70,20 @@ export function GradeExportPage() {
         <h1>Grade table & export</h1>
       </header>
       <div className="form-panel">
+        <Field label="Subject">
+          <SelectInput value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setAssignmentId(""); }}>
+            <option value="">All subjects</option>
+            {(subjects.data?.items ?? []).map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.code} - {subject.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
         <Field label="Assignment">
           <SelectInput value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}>
             <option value="">Select an assignment</option>
-            {(assignments.data ?? []).map((assignment) => (
+            {(assignments.data?.items ?? []).map((assignment) => (
               <option key={assignment.id} value={assignment.id}>
                 {assignment.title}
               </option>
@@ -86,7 +102,14 @@ export function GradeExportPage() {
               <TextInput value={mssvFilter} onChange={(event) => setMssvFilter(event.target.value)} placeholder="SE123456" />
             </Field>
             <Field label="Filter by class">
-              <TextInput value={classFilter} onChange={(event) => setClassFilter(event.target.value)} placeholder="SE1801" />
+              <SelectInput value={classFilter} onChange={(event) => setClassFilter(event.target.value)}>
+                <option value="">All classes</option>
+                {(classes.data ?? []).map((klass) => (
+                  <option key={klass.id} value={klass.name}>
+                    {klass.name}
+                  </option>
+                ))}
+              </SelectInput>
             </Field>
           </div>
           <p>Showing rows where MSSV contains the filter AND Class contains the filter.</p>
