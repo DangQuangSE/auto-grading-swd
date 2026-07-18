@@ -75,8 +75,20 @@ static async Task SeedTestAccountsAsync(IServiceProvider services)
 
     (string Email, string FullName, AppRole Role)[] testAccounts =
     [
-        ("teststudent1@fpt.edu.vn", "Test Student", AppRole.Student),
-        ("testlecturer1@fpt.edu.vn", "Test Lecturer", AppRole.Lecturer),
+        ("teststudent1@fpt.edu.vn", "Test Student 1", AppRole.Student),
+        ("teststudent2@fpt.edu.vn", "Test Student 2", AppRole.Student),
+        ("teststudent3@fpt.edu.vn", "Test Student 3", AppRole.Student),
+        ("teststudent4@fpt.edu.vn", "Test Student 4", AppRole.Student),
+        ("teststudent5@fpt.edu.vn", "Test Student 5", AppRole.Student),
+        ("teststudent6@fpt.edu.vn", "Test Student 6", AppRole.Student),
+        ("teststudent7@fpt.edu.vn", "Test Student 7", AppRole.Student),
+        ("teststudent8@fpt.edu.vn", "Test Student 8", AppRole.Student),
+        ("teststudent9@fpt.edu.vn", "Test Student 9", AppRole.Student),
+        ("teststudent10@fpt.edu.vn", "Test Student 10", AppRole.Student),
+        ("testlecturer1@fpt.edu.vn", "Test Lecturer 1", AppRole.Lecturer),
+        ("testlecturer2@fpt.edu.vn", "Test Lecturer 2", AppRole.Lecturer),
+        ("testlecturer3@fpt.edu.vn", "Test Lecturer 3", AppRole.Lecturer),
+        ("testlecturer4@fpt.edu.vn", "Test Lecturer 4", AppRole.Lecturer),
         ("testadmin1@fpt.edu.vn", "Test Admin", AppRole.Admin),
     ];
 
