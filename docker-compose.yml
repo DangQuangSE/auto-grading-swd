@@ -1,16 +1,16 @@
 services:
-  sqlserver:
+  postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: autograding
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${SA_PASSWORD:-AutoGrading_2026#}
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d autograding"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: be/src/Services/Identity/AutoGrading.Identity.Api/Dockerfile
     environment:
-      ConnectionStrings__IdentityDb: Server=sqlserver,1433;Database=AutoGrading.Identity;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      ConnectionStrings__IdentityDb: Host=postgres;Port=5432;Database=AutoGrading.Identity;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -75,7 +75,7 @@ services:
     ports:
       - "5001:8080"
     depends_on:
-      sqlserver: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -90,7 +90,7 @@ services:
       context: .
       dockerfile: be/src/Services/Catalog/AutoGrading.Catalog.Api/Dockerfile
     environment:
-      ConnectionStrings__CatalogDb: Server=sqlserver,1433;Database=AutoGrading.Catalog;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      ConnectionStrings__CatalogDb: Host=postgres;Port=5432;Database=AutoGrading.Catalog;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -112,7 +112,7 @@ services:
     ports:
       - "5002:8080"
     depends_on:
-      sqlserver: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       minio: { condition: service_healthy }
     healthcheck:
@@ -128,7 +128,7 @@ services:
       context: .
       dockerfile: be/src/Services/Submission/AutoGrading.Submission.Api/Dockerfile
     environment:
-      ConnectionStrings__SubmissionDb: Server=sqlserver,1433;Database=AutoGrading.Submission;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      ConnectionStrings__SubmissionDb: Host=postgres;Port=5432;Database=AutoGrading.Submission;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -147,7 +147,7 @@ services:
     ports:
       - "5003:8080"
     depends_on:
-      sqlserver: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       minio: { condition: service_healthy }
     healthcheck:
@@ -163,7 +163,7 @@ services:
       context: .
       dockerfile: be/src/Services/Grading/AutoGrading.Grading.Api/Dockerfile
     environment:
-      ConnectionStrings__GradingDb: Server=sqlserver,1433;Database=AutoGrading.Grading;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      ConnectionStrings__GradingDb: Host=postgres;Port=5432;Database=AutoGrading.Grading;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -182,7 +182,7 @@ services:
     ports:
       - "5004:8080"
     depends_on:
-      sqlserver: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       catalog-api: { condition: service_healthy }
       submission-api: { condition: service_healthy }
@@ -199,7 +199,7 @@ services:
       context: .
       dockerfile: be/src/Services/Notification/AutoGrading.Notification.Api/Dockerfile
     environment:
-      ConnectionStrings__NotificationDb: Server=sqlserver,1433;Database=AutoGrading.Notification;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      ConnectionStrings__NotificationDb: Host=postgres;Port=5432;Database=AutoGrading.Notification;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -213,7 +213,7 @@ services:
     ports:
       - "5005:8080"
     depends_on:
-      sqlserver: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -282,6 +282,6 @@ networks:
   autograding-net:
 
 volumes:
-  sqlserver_data:
+  postgres_data:
   rabbitmq_data:
   minio_data:
