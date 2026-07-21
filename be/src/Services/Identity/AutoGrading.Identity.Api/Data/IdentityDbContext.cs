@@ -11,7 +11,7 @@ public class IdentityDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<ClassLecturerCache> ClassLecturerCaches => Set<ClassLecturerCache>();
-    public DbSet<SubmissionStudent> SubmissionStudents => set<SubmissionStudent>();
+    public DbSet<SubmissionStudent> SubmissionStudents => Set<SubmissionStudent>();
     public DbSet<SubmissionGrader> SubmissionGraders => Set<SubmissionGrader>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
