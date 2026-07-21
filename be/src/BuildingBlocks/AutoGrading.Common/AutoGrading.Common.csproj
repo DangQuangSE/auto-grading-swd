@@ -23,4 +23,5 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PackageReference Include="MassTransit.Postgres" Version="8.3.2" />
 </Project>
