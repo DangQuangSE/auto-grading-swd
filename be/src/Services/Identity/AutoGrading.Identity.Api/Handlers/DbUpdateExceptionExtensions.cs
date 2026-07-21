@@ -17,4 +17,13 @@ public static class DbUpdateExceptionExtensions
         }
         return ex.Message;
     }
+
+    public static bool IsPrimaryKeyViolation(this DbUpdateException ex)
+    {
+        if (ex.InnerException is PostgresException pgEx)
+        {
+            return pgEx.SqlState == "23505"; // Unique constraint violation
+        }
+        return false;
+    }
 }
