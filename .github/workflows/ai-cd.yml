@@ -1,0 +1,55 @@
+name: "AI-CD: merge + deploy to VPS2"
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  merge-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config --global user.email "bot@auto-grading.local"
+          git config --global user.name "Auto Merge Bot"
+
+      - name: Merge main → deploy/postgres (auto-resolve)
+        id: merge
+        run: |
+          git checkout deploy/postgres
+          if git merge origin/main --no-ff --strategy-option=ours --no-edit; then
+            echo "status=clean" >> $GITHUB_OUTPUT
+          else
+            echo "status=conflict" >> $GITHUB_OUTPUT
+          fi
+          git push origin deploy/postgres
+
+      - name: AI Resolve Conflict
+        if: steps.merge.outputs.status == 'conflict'
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          git checkout main
+          git diff main..deploy/postgres --name-only > /tmp/conflict-files.txt || true
+          
+          # Use OpenCode AI to analyze and fix conflicts
+          # ... AI resolution logic here
+
+      - name: Deploy to VPS2
+        if: always() && steps.merge.outputs.status != 'failed'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /opt/auto-grading
+            git pull origin deploy/postgres
+            docker compose up -d --build
+            docker compose ps
