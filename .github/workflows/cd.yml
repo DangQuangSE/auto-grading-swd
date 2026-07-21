@@ -1,0 +1,42 @@
+name: CD - Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build & Test
+        run: |
+          dotnet restore be/AutoGrading.sln
+          dotnet build be/AutoGrading.sln --configuration Release
+          dotnet test be/AutoGrading.sln --configuration Release --verbosity normal
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            set -e
+            cd /opt/auto-grading
+            git pull origin main
+            docker compose -f docker-compose.yml down
+            docker compose -f docker-compose.yml up -d --build
+            docker image prune -f
