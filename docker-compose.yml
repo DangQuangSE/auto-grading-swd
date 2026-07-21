@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: be/src/Services/Identity/AutoGrading.Identity.Api/Dockerfile
     environment:
-      ConnectionStrings__IdentityDb: Host=postgres;Port=5432;Database=AutoGrading.Identity;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
+      ConnectionStrings__IdentityDb: Host=postgres;Port=5432;Database=autograding;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -90,7 +90,7 @@ services:
       context: .
       dockerfile: be/src/Services/Catalog/AutoGrading.Catalog.Api/Dockerfile
     environment:
-      ConnectionStrings__CatalogDb: Host=postgres;Port=5432;Database=AutoGrading.Catalog;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
+      ConnectionStrings__CatalogDb: Host=postgres;Port=5432;Database=autograding;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -128,7 +128,7 @@ services:
       context: .
       dockerfile: be/src/Services/Submission/AutoGrading.Submission.Api/Dockerfile
     environment:
-      ConnectionStrings__SubmissionDb: Host=postgres;Port=5432;Database=AutoGrading.Submission;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
+      ConnectionStrings__SubmissionDb: Host=postgres;Port=5432;Database=autograding;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -163,7 +163,7 @@ services:
       context: .
       dockerfile: be/src/Services/Grading/AutoGrading.Grading.Api/Dockerfile
     environment:
-      ConnectionStrings__GradingDb: Host=postgres;Port=5432;Database=AutoGrading.Grading;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
+      ConnectionStrings__GradingDb: Host=postgres;Port=5432;Database=autograding;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
@@ -199,7 +199,7 @@ services:
       context: .
       dockerfile: be/src/Services/Notification/AutoGrading.Notification.Api/Dockerfile
     environment:
-      ConnectionStrings__NotificationDb: Host=postgres;Port=5432;Database=AutoGrading.Notification;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
+      ConnectionStrings__NotificationDb: Host=postgres;Port=5432;Database=autograding;Username=postgres;Password=${SA_PASSWORD};IncludeErrorDetail=True;
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
