@@ -22,4 +22,7 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\AutoGrading.Common\AutoGrading.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Hangfire.InMemory" Version="1.0.0" />
+  </ItemGroup>
 </Project>
