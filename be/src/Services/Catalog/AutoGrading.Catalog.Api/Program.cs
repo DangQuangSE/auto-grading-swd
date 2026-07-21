@@ -13,7 +13,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<CatalogDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("CatalogDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("CatalogDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
@@ -29,7 +29,7 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(builder.Configuration.GetConnectionString("CatalogDb")));
+    .UsePostgres(builder.Configuration.GetConnectionString("CatalogDb")));
 builder.Services.AddHangfireServer();
 
 builder.Services.AddHealthChecks();

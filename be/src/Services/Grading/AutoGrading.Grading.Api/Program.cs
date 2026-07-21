@@ -20,7 +20,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<GradingDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("GradingDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("GradingDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddJwtTokenGenerator(builder.Configuration);
@@ -52,7 +52,7 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(builder.Configuration.GetConnectionString("GradingDb")));
+    .UsePostgres(builder.Configuration.GetConnectionString("GradingDb")));
 builder.Services.AddHangfireServer();
 
 builder.Services.AddHealthChecks();

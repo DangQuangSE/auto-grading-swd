@@ -16,7 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<SubmissionDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SubmissionDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("SubmissionDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
@@ -35,7 +35,7 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(builder.Configuration.GetConnectionString("SubmissionDb")));
+    .UsePostgres(builder.Configuration.GetConnectionString("SubmissionDb")));
 builder.Services.AddHangfireServer();
 
 builder.Services.AddHealthChecks();
