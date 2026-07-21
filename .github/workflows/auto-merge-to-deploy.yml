@@ -1,0 +1,35 @@
+name: Auto-merge main → deploy/postgres
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config --global user.email "bot@auto-grading.local"
+          git config --global user.name "Auto Merge Bot"
+
+      - name: Merge main → deploy/postgres
+        run: |
+          git checkout deploy/postgres
+          git merge origin/main --no-ff --no-edit || {
+            echo "CONFLICT_DETECTED=true" >> $GITHUB_ENV
+            exit 1
+          }
+          git push origin deploy/postgres
+
+      - name: Alert on conflict
+        if: failure() && steps.merge.outcome == 'failure'
+        run: |
+          echo "::warning::Merge conflict detected! Manual intervention required."
+          # Optionally create issue or send notification
