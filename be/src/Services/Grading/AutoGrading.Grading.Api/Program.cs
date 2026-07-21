@@ -52,7 +52,7 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgres(builder.Configuration.GetConnectionString("GradingDb")));
+    .UseInMemorySagaRepository(builder.Configuration.GetConnectionString("GradingDb")));
 builder.Services.AddHangfireServer();
 
 builder.Services.AddHealthChecks();

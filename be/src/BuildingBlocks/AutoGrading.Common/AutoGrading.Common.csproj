@@ -15,7 +15,6 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
     <PackageReference Include="Hangfire.Core" Version="1.8.14" />
-    <PackageReference Include="MassTransit.Postgres" Version="8.3.2" />
   </ItemGroup>
 
   <PropertyGroup>
