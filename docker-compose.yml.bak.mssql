@@ -1,10 +1,9 @@
 services:
   sqlserver:
-    image: postgres:16-alpine
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      POSTGRES_DB: autograding
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${SA_PASSWORD:-AutoGrading_2026#}
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
     ports:
       - "1433:1433"
     volumes:
