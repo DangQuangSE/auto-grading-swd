@@ -98,16 +98,39 @@ public class OpenCodeClient(HttpClient httpClient, IOptions<OpenCodeOptions> opt
             },
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
+        const int maxRetries = 3;
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
-        };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
+                };
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
 
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+                using var response = await httpClient.SendAsync(request, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsStringAsync(cancellationToken);
+                }
 
-        return await response.Content.ReadAsStringAsync(cancellationToken);
+                if (attempt == maxRetries)
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+
+                logger.LogWarning("SendChatCompletionAsync attempt {Attempt}/{MaxRetries} failed with {StatusCode}", attempt, maxRetries, response.StatusCode);
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+            }
+            catch (Exception ex) when (attempt < maxRetries && ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "SendChatCompletionAsync attempt {Attempt}/{MaxRetries} threw exception", attempt, maxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+            }
+        }
+
+        throw new HttpRequestException("OpenCode request failed after 3 retries.");
     }
 
     private static string BuildGradingPrompt(string reportContent, string diagramContent, IReadOnlyList<GradingCriterionInput> criteria, string? assignmentDescription)

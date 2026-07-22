@@ -45,19 +45,53 @@ public class OpenCodeClient(HttpClient httpClient, IOptions<OpenCodeOptions> opt
             },
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
-        };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
+        const int maxRetries = 3;
+        HttpResponseMessage? response = null;
+        string payload = string.Empty;
 
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            logger.LogError("OpenCode request failed with {StatusCode}: {Body}", response.StatusCode, payload);
-            return StubGrade(criteria, $"Stub grading (OpenCode request failed: {(int)response.StatusCode}).");
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/chat/completions")
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
+                };
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
+
+                response?.Dispose();
+                response = await httpClient.SendAsync(request, cancellationToken);
+                payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                logger.LogWarning(
+                    "OpenCode request attempt {Attempt}/{MaxRetries} failed with {StatusCode}: {Body}",
+                    attempt,
+                    maxRetries,
+                    response.StatusCode,
+                    payload);
+
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+                }
+            }
+            catch (Exception ex) when (attempt < maxRetries && ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "OpenCode request attempt {Attempt}/{MaxRetries} threw exception", attempt, maxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+            }
+        }
+
+        if (response is null || !response.IsSuccessStatusCode)
+        {
+            var statusCode = response is null ? "Exception" : ((int)response.StatusCode).ToString();
+            logger.LogError("OpenCode request failed after {MaxRetries} attempts with {StatusCode}: {Body}", maxRetries, statusCode, payload);
+            return StubGrade(criteria, $"Stub grading (OpenCode request failed after {maxRetries} attempts: {statusCode}).");
         }
 
         var parsed = TryParseResponse(payload, criteria, out var failureReason);
@@ -168,6 +202,23 @@ public class OpenCodeClient(HttpClient httpClient, IOptions<OpenCodeOptions> opt
             {
                 failureReason = $"no matching rubric criteria in AI response (skipped {skipped} item(s))";
                 return null;
+            }
+
+            // Fill in missing criteria if the LLM omitted any of them so total max score matches rubric.
+            var coveredIds = results.Select(r => r.RubricCriterionId).ToHashSet();
+            foreach (var criterion in criteria)
+            {
+                if (!coveredIds.Contains(criterion.RubricCriterionId))
+                {
+                    results.Add(new GradingCriterionResult(
+                        criterion.RubricCriterionId,
+                        criterion.MaxScore,
+                        SuggestedScore: 0m,
+                        Deductions: "Criterion omitted in AI response",
+                        Evidence: "The AI model response omitted evaluation for this rubric criterion.",
+                        Comment: "Criterion omitted by AI model response; fallback score assigned.",
+                        Confidence: 0.5m));
+                }
             }
 
             failureReason = string.Empty;
