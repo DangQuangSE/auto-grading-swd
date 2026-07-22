@@ -30,7 +30,7 @@ public class CatalogDbContext : DbContext
                     status => status.ToString().ToLowerInvariant(),
                     value => Enum.Parse<RegistrationStatus>(value, true))
                 .HasMaxLength(16)
-                .HasDefaultValue("closed");
+                .HasDefaultValueSql("'closed'");
             entity.HasIndex(s => s.Code).IsUnique();
         });
 
