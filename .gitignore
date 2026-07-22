@@ -36,3 +36,4 @@ be/**/obj/
 # Docker local data
 .docker-data/
 .agents/
+CLAUDE.md

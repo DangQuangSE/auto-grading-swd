@@ -44,8 +44,8 @@ public class AiGradingJobTests
     private sealed class StubCatalogApiClient(Guid criterionId) : ICatalogApiClient
     {
         public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
-        public Task<List<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => 
-            Task.FromResult(new List<RubricCriterionDto> { new RubricCriterionDto(criterionId, "Correctness", 40m) });
+        public Task<IReadOnlyList<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => 
+            Task.FromResult<IReadOnlyList<RubricCriterionDto>>(new List<RubricCriterionDto> { new RubricCriterionDto(criterionId, "C1", "Correctness", "Desc", 40m, 0) });
     }
 
     private sealed class StubSubmissionApiClient(Guid assignmentId) : ISubmissionApiClient
@@ -78,7 +78,7 @@ public class AiGradingJobTests
     
     private sealed class MockEmptyCatalog : ICatalogApiClient {
         public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
-        public Task<List<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult(new List<RubricCriterionDto>());
+        public Task<IReadOnlyList<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RubricCriterionDto>>(new List<RubricCriterionDto>());
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class AiGradingJobTests
         Assert.Equal(criterionId, score.RubricCriterionId);
         Assert.Equal(40m, score.MaxScore);
 
-        var completed = Assert.IsType<AiGradingCompleted>(eventBus.Published[0]);
+        var completed = Assert.IsType<AiGradingCompleted>(eventBus.Published.OfType<AiGradingCompleted>().Single());
         Assert.Equal(submissionId, completed.SubmissionId);
     }
 }
