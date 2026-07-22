@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import { ProgressBar, GradingStatus } from "../components/ProgressBar";
 import { Button } from "../components/ui/Button";
-import { apiPost } from "../lib/apiClient";
+import { apiPost, apiGet } from "../lib/apiClient";
 import { useSubjects, useAllAssignments } from "../hooks/useSubjects";
 
 function getFileName(objectKey: string | undefined): string {
@@ -24,73 +24,42 @@ export function StudentResultPage() {
   const { submissionId: paramId } = useParams<{ submissionId?: string }>();
   const { session } = useAuth();
   const [selectedId, setSelectedId] = useState(paramId ?? "");
+  const [liveStatus, setLiveStatus] = useState<GradingStatus>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
-  const submissions = useQuery({
-    queryKey: ["my-submissions", session?.user.id],
-    queryFn: () => listMySubmissions(session!.user.id),
-    enabled: Boolean(session),
-  });
-
-  const subjects = useSubjects();
-  const assignments = useAllAssignments();
+  // Update selectedId whenever paramId URL param changes
+  useEffect(() => {
+    if (paramId) {
+      setSelectedId(paramId);
+    }
+  }, [paramId]);
 
   const queryClient = useQueryClient();
-  const retryMutation = useMutation({
-    mutationFn: () => apiPost(`/submissions/submissions/${selectedId}/retry`),
-    onSuccess: () => {
-      setLiveStatus("Uploaded");
-      setLiveError(null);
-      queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
-      queryClient.invalidateQueries({ queryKey: ["grading-runs", selectedId] });
-    },
-  });
 
   const runs = useQuery({
     queryKey: ["grading-runs", selectedId],
     queryFn: () => getGradingRuns(selectedId),
     enabled: Boolean(selectedId),
     refetchInterval: (query) => {
-      const latest = query.state.data?.[0];
-      return latest?.status === "running" ? 3000 : false;
+      const runStatus = query.state.data?.[0]?.status;
+      if (runStatus === "completed" || runStatus === "failed") return false;
+      return selectedId ? 2000 : false;
     },
   });
 
-  const [liveStatus, setLiveStatus] = useState<GradingStatus>(null);
-  const [liveError, setLiveError] = useState<string | null>(null);
-
-  // Clear liveStatus when changing submission
-  useEffect(() => {
-    setLiveStatus(null);
-    setLiveError(null);
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (!session || !selectedId) return;
-
-    const connection = new HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_API_BASE_URL}/notifications/hub?access_token=${session.token}`)
-      .withAutomaticReconnect()
-      .build();
-
-    connection.on("SubmissionUpdated", (data) => {
-      if (data.submissionId === selectedId) {
-        setLiveStatus(data.status);
-        if (data.errorMessage) {
-          setLiveError(data.errorMessage);
-        }
-        
-        // Force refetch of data to keep UI fresh
-        queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
-        queryClient.invalidateQueries({ queryKey: ["grading-runs", selectedId] });
-        if (data.status === "Completed") {
-          queryClient.invalidateQueries({ queryKey: ["final-grade", selectedId] });
-        }
-      }
-    });
-
-    connection.start().catch(console.error);
-    return () => { connection.stop(); };
-  }, [session, selectedId, queryClient]);
+  const submissions = useQuery({
+    queryKey: ["my-submissions", session?.user.id],
+    queryFn: () => listMySubmissions(session!.user.id),
+    enabled: Boolean(session),
+    refetchInterval: (query) => {
+      const currentSub = query.state.data?.find(s => s.id === selectedId);
+      const stateStr = currentSub?.state?.toLowerCase();
+      if (stateStr === "failed") return false;
+      const latestRunStatus = runs.data?.[0]?.status;
+      if (latestRunStatus === "completed" || latestRunStatus === "failed") return false;
+      return selectedId ? 2000 : false;
+    },
+  });
 
   const latestRun = runs.data?.[0] ?? null;
   const sub = submissions.data?.find(s => s.id === selectedId);
@@ -103,19 +72,88 @@ export function StudentResultPage() {
      if (stateStr === "extracted") baseStatus = "AiGrading";
      if (stateStr === "failed") baseStatus = "ExtractionFailed";
   }
-  
+
   if (latestRun) {
+    if (latestRun.status === "running") baseStatus = "AiGrading";
     if (latestRun.status === "completed") baseStatus = "Completed";
     if (latestRun.status === "failed") baseStatus = "AiGradingFailed";
   }
 
-  const effectiveStatus = liveStatus ?? baseStatus;
+  const isFinished = baseStatus === "Completed" || baseStatus === "AiGradingFailed" || baseStatus === "ExtractionFailed";
+  const effectiveStatus = isFinished ? baseStatus : (liveStatus ?? baseStatus);
+
+  // Auto-select latest submission if no submission ID selected or if paramId is absent
+  useEffect(() => {
+    if (!paramId && !selectedId && submissions.data && submissions.data.length > 0) {
+      setSelectedId(submissions.data[0].id);
+    }
+  }, [paramId, selectedId, submissions.data]);
+
+  const subjects = useSubjects();
+  const assignments = useAllAssignments();
+
+  const retryMutation = useMutation({
+    mutationFn: () => apiPost(`/submissions/submissions/${selectedId}/retry`),
+    onSuccess: () => {
+      setLiveStatus("Uploaded");
+      setLiveError(null);
+      queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["grading-runs", selectedId] });
+    },
+  });
+
+  // Clear liveStatus when changing submission
+  useEffect(() => {
+    setLiveStatus(null);
+    setLiveError(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!session?.token) return;
+
+    const connection = new HubConnectionBuilder()
+      .withUrl(`${import.meta.env.VITE_API_BASE_URL}/notifications/hub?access_token=${session.token}`)
+      .withAutomaticReconnect()
+      .build();
+
+    connection.on("SubmissionUpdated", (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
+
+      if (data.submissionId === selectedId) {
+        setLiveStatus(data.status);
+        if (data.errorMessage) {
+          setLiveError(data.errorMessage);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["grading-runs", selectedId] });
+        if (data.status === "Completed") {
+          queryClient.invalidateQueries({ queryKey: ["final-grade", selectedId] });
+        }
+      }
+    });
+
+    connection.start().catch(console.error);
+
+    return () => {
+      connection.stop();
+    };
+  }, [session?.token, selectedId, queryClient]);
 
   const grade = useQuery({
     queryKey: ["final-grade", selectedId],
     queryFn: () => getFinalGrade(selectedId),
     enabled: Boolean(selectedId),
     refetchInterval: (query) => (query.state.data ? false : 5000),
+  });
+
+  const rubricQuery = useQuery({
+    queryKey: ["rubric-for-assignment", sub?.assignmentId],
+    queryFn: async () => {
+      if (!sub?.assignmentId) return null;
+      const rubrics = await apiGet<any[]>(`/catalog/rubrics?assignmentId=${sub.assignmentId}`);
+      return rubrics?.[0] ?? null;
+    },
+    enabled: Boolean(sub?.assignmentId),
   });
 
 
@@ -228,18 +266,22 @@ export function StudentResultPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {latestRun.scores.map((score) => (
-                    <tr key={score.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                      <td style={{ padding: "0.4rem", fontFamily: "monospace", fontSize: "0.75rem", whiteSpace: "nowrap" }}>
-                        {score.rubricCriterionId.slice(0, 8)}
-                      </td>
-                      <td style={{ padding: "0.4rem", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {score.suggestedScore} / {score.maxScore}
-                      </td>
-                      <td style={{ padding: "0.4rem", color: "#555" }}>{score.evidence ?? "—"}</td>
-                      <td style={{ padding: "0.4rem", color: "#555" }}>{score.comment ?? "—"}</td>
-                    </tr>
-                  ))}
+                  {latestRun.scores.map((score) => {
+                    const criterion = rubricQuery.data?.criteria?.find((c: any) => c.id === score.rubricCriterionId);
+                    const criterionName = criterion?.name || score.rubricCriterionId.slice(0, 8);
+                    return (
+                      <tr key={score.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
+                        <td style={{ padding: "0.4rem", fontWeight: 500, whiteSpace: "nowrap" }}>
+                          {criterionName}
+                        </td>
+                        <td style={{ padding: "0.4rem", fontWeight: 600, whiteSpace: "nowrap" }}>
+                          {score.suggestedScore} / {score.maxScore}
+                        </td>
+                        <td style={{ padding: "0.4rem", color: "#555" }}>{score.evidence ?? "—"}</td>
+                        <td style={{ padding: "0.4rem", color: "#555" }}>{score.comment ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
