@@ -8,6 +8,7 @@ export function useCreateSubmission() {
   return useMutation({
     mutationFn: createSubmission,
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
     },
   });
@@ -21,6 +22,7 @@ export function useRunExtraction() {
       triggerExtraction(submissionId, actorId),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["submission-review", variables.submissionId] });
+      await queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
     },
   });
@@ -34,6 +36,7 @@ export function useRunAiGrading() {
       triggerAiGrading(submissionId, actorId),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["submission-review", variables.submissionId] });
+      await queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
     },
   });
