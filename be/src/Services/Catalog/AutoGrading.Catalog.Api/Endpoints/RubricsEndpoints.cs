@@ -18,7 +18,7 @@ public static class RubricsEndpoints
     {
         var group = app.MapGroup("/rubrics").WithTags("Rubrics");
 
-        group.MapGet("/", async (Guid? subjectId, Guid? assignmentId, CatalogDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (Guid? subjectId, Guid? assignmentId, ClaimsPrincipal user, CatalogDbContext db, CancellationToken ct) =>
             {
                 var query = db.Rubrics.AsNoTracking().Include(r => r.Criteria).AsQueryable();
                 if (subjectId is not null)
@@ -31,16 +31,27 @@ public static class RubricsEndpoints
                     query = query.Where(r => r.AssignmentId == assignmentId);
                 }
 
+                if (!user.IsInRole("admin"))
+                {
+                    var callerId = user.GetUserId();
+                    query = query.Where(r => r.Status == RubricStatus.Confirmed || r.LecturerId == callerId);
+                }
+
                 return Results.Ok(await query.ToListAsync(ct));
             })
             .RequireAuthorization();
 
-        group.MapGet("/{id:guid}/file", async (Guid id, CatalogDbContext db, IObjectStorage storage, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/file", async (Guid id, ClaimsPrincipal user, CatalogDbContext db, IObjectStorage storage, CancellationToken ct) =>
             {
                 var rubric = await db.Rubrics.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
                 if (rubric?.FileObjectKey is null)
                 {
                     return Results.NotFound();
+                }
+
+                if (!CanView(rubric, user))
+                {
+                    return Results.Forbid();
                 }
 
                 var stream = await storage.DownloadAsync(rubric.FileObjectKey, ct);
@@ -279,6 +290,12 @@ public static class RubricsEndpoints
     /// `SchoolWide` rubrics have no owning lecturer, so only admins may edit/confirm/unlock them.</summary>
     private static bool IsAuthorized(Rubric rubric, ClaimsPrincipal user) =>
         user.IsInRole("admin") || rubric.LecturerId == user.GetUserId();
+
+    /// <summary>A caller may read a rubric if it's already `Confirmed` (the point where students are
+    /// meant to see grading criteria), or if they're otherwise authorized to edit it — Draft/Parsing
+    /// rubrics are a lecturer's in-progress work and shouldn't leak to other lecturers or students.</summary>
+    private static bool CanView(Rubric rubric, ClaimsPrincipal user) =>
+        rubric.Status == RubricStatus.Confirmed || IsAuthorized(rubric, user);
 
     private static async Task<IResult?> TrySaveChangesAsync(CatalogDbContext db, Guid rubricId, CancellationToken cancellationToken)
     {

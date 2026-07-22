@@ -14,12 +14,17 @@ public static class UsersEndpoints
     {
         var group = app.MapGroup("/users").WithTags("Users");
 
-        group.MapGet("/", async (string[]? ids, IdentityDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (string[]? ids, ClaimsPrincipal caller, IdentityDbContext db, CancellationToken ct) =>
             {
                 var requestedIds = ParseIds(ids);
                 var users = requestedIds is null
                     ? await db.Users.AsNoTracking().ToListAsync(ct)
                     : await db.Users.AsNoTracking().Where(u => requestedIds.Contains(u.Id)).ToListAsync(ct);
+
+                if (!caller.IsInRole("admin"))
+                {
+                    users = await FilterToAuthorizedAsync(caller, users, db, ct);
+                }
 
                 return Results.Ok(await ResolveClassNamesAsync(users, db, ct));
             })
@@ -175,6 +180,26 @@ public static class UsersEndpoints
             .ToHashSet();
 
         return parsed.Count > 0 ? parsed : null;
+    }
+
+    /// <summary>Narrows a roster listing to the students a lecturer has a relationship with (teaches
+    /// their class, or has graded one of their submissions) — reuses the same rule already enforced
+    /// on the write side (<see cref="RosterAuthorization"/>) so a lecturer can't browse other
+    /// lecturers' rosters read-only.</summary>
+    private static async Task<List<User>> FilterToAuthorizedAsync(
+        ClaimsPrincipal caller, List<User> users, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        var authorized = new List<User>();
+        foreach (var user in users)
+        {
+            var authorization = await RosterAuthorization.AuthorizeAsync(caller, user, db, cancellationToken);
+            if (authorization != RosterAuthorizationResult.Denied)
+            {
+                authorized.Add(user);
+            }
+        }
+
+        return authorized;
     }
 
     private static async Task<List<UserSummary>> ResolveClassNamesAsync(List<User> users, IdentityDbContext db, CancellationToken cancellationToken)

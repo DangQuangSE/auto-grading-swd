@@ -1,13 +1,5 @@
 import { ApiError, apiGet } from "../lib/apiClient";
 
-export async function triggerExtraction(_submissionId: string, _actorId?: string) {
-  return Promise.resolve(null);
-}
-
-export async function triggerAiGrading(_submissionId: string, _actorId?: string) {
-  return Promise.resolve(null);
-}
-
 export type AiCriterionScore = {
   id: string;
   rubricCriterionId: string;

@@ -42,15 +42,22 @@ public static class GradesEndpoints
         return app;
     }
 
-    private static async Task<IResult> GetRunsAsync(Guid submissionId, GradingDbContext db, CancellationToken ct) =>
-        Results.Ok(await db.AiGradingRuns.AsNoTracking().Include(r => r.Scores)
+    private static async Task<IResult> GetRunsAsync(
+        Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
+        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    {
+        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
+            return Results.Forbid();
+
+        return Results.Ok(await db.AiGradingRuns.AsNoTracking().Include(r => r.Scores)
             .Where(r => r.SubmissionId == submissionId).ToListAsync(ct));
+    }
 
     private static async Task<IResult> GetPublishedResultAsync(
         Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, CancellationToken ct)
+        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
     {
-        if (!await CanReadSubmissionAsync(submissionId, user, submissions, ct))
+        if (!await CanReadSubmissionAsync(submissionId, user, submissions, catalog, ct))
             return Results.Forbid();
 
         var publication = await db.GradePublications.AsNoTracking()
@@ -73,9 +80,9 @@ public static class GradesEndpoints
 
     private static async Task<IResult> GetFinalGradeAsync(
         Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, CancellationToken ct)
+        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
     {
-        if (!await CanReadSubmissionAsync(submissionId, user, submissions, ct))
+        if (!await CanReadSubmissionAsync(submissionId, user, submissions, catalog, ct))
             return Results.Forbid();
 
         var finalGrade = await db.FinalGrades.AsNoTracking()
@@ -88,18 +95,41 @@ public static class GradesEndpoints
     }
 
     private static async Task<bool> CanReadSubmissionAsync(
-        Guid submissionId, ClaimsPrincipal user, ISubmissionApiClient submissions, CancellationToken ct)
+        Guid submissionId, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
     {
-        if (user.IsInRole("admin") || user.IsInRole("lecturer")) return true;
+        if (user.IsInRole("admin")) return true;
+        if (user.IsInRole("lecturer")) return await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct);
         if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return false;
         var submission = await submissions.GetSubmissionAsync(submissionId, ct);
         return submission?.StudentId == userId;
     }
 
-    private static async Task<IResult> GetFinalGradesBatchAsync(string[]? submissionIds, GradingDbContext db, CancellationToken ct)
+    /// <summary>True if the calling lecturer teaches a class the submission's student is
+    /// enrolled in, for that submission's assignment's subject.</summary>
+    private static async Task<bool> IsLecturerAllowedAsync(
+        Guid submissionId, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    {
+        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return false;
+        var submission = await submissions.GetSubmissionAsync(submissionId, ct);
+        if (submission is null) return false;
+        var assignment = await catalog.GetAssignmentAsync(submission.AssignmentId, ct);
+        if (assignment is null) return false;
+        var allowedStudentIds = await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, ct);
+        return allowedStudentIds.Contains(submission.StudentId);
+    }
+
+    private static async Task<IResult> GetFinalGradesBatchAsync(
+        string[]? submissionIds, ClaimsPrincipal user, GradingDbContext db,
+        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
     {
         var ids = ParseIds(submissionIds);
         if (ids is null) return Results.Ok(Array.Empty<FinalGradeResponse>());
+
+        if (user.IsInRole("lecturer"))
+        {
+            ids = await FilterAllowedForLecturerAsync(ids, user, submissions, catalog, ct);
+            if (ids.Count == 0) return Results.Ok(Array.Empty<FinalGradeResponse>());
+        }
 
         var grades = await db.FinalGrades.AsNoTracking()
             .Join(db.GradePublications.AsNoTracking(), f => f.Id, p => p.FinalGradeId, (f, p) => new { Grade = f, p.PublishedAt })
@@ -107,6 +137,40 @@ public static class GradesEndpoints
             .OrderByDescending(x => x.PublishedAt).ToListAsync(ct);
         return Results.Ok(grades.GroupBy(x => x.Grade.SubmissionId).Select(g => g.First().Grade)
             .Select(f => new FinalGradeResponse(f.SubmissionId, f.Id, f.FinalScore, f.CreatedAt)));
+    }
+
+    /// <summary>Narrows a batch of submission ids down to the ones the calling lecturer may see,
+    /// caching the allowed-student-id lookup per assignment since a batch commonly spans one
+    /// assignment's worth of submissions.</summary>
+    private static async Task<HashSet<Guid>> FilterAllowedForLecturerAsync(
+        HashSet<Guid> submissionIds, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    {
+        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return [];
+
+        var allowed = new HashSet<Guid>();
+        var allowedStudentIdsByAssignment = new Dictionary<Guid, HashSet<Guid>>();
+
+        foreach (var submissionId in submissionIds)
+        {
+            var submission = await submissions.GetSubmissionAsync(submissionId, ct);
+            if (submission is null) continue;
+
+            if (!allowedStudentIdsByAssignment.TryGetValue(submission.AssignmentId, out var allowedStudentIds))
+            {
+                var assignment = await catalog.GetAssignmentAsync(submission.AssignmentId, ct);
+                allowedStudentIds = assignment is null
+                    ? []
+                    : await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, ct);
+                allowedStudentIdsByAssignment[submission.AssignmentId] = allowedStudentIds;
+            }
+
+            if (allowedStudentIds.Contains(submission.StudentId))
+            {
+                allowed.Add(submissionId);
+            }
+        }
+
+        return allowed;
     }
 
     private static HashSet<Guid>? ParseIds(string[]? ids)
@@ -117,16 +181,24 @@ public static class GradesEndpoints
         return parsed.Count > 0 ? parsed : null;
     }
 
-    private static IResult RegradeAsync(Guid submissionId, RegradeRequest request, IBackgroundJobClient jobs)
+    private static async Task<IResult> RegradeAsync(
+        Guid submissionId, RegradeRequest request, ClaimsPrincipal user,
+        ISubmissionApiClient submissions, ICatalogApiClient catalog, IBackgroundJobClient jobs, CancellationToken ct)
     {
+        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
+            return Results.Forbid();
+
         jobs.Enqueue<AiGradingJob>(job => job.ExecuteAsync(submissionId, request.AssignmentDescription, CancellationToken.None));
         return Results.Accepted($"/grades/{submissionId}/runs");
     }
 
     private static async Task<IResult> PublishGradeAsync(
         Guid submissionId, PublishGradeRequest request, ClaimsPrincipal user,
-        GradingDbContext db, CancellationToken ct)
+        GradingDbContext db, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
     {
+        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
+            return Results.Forbid();
+
         var existing = await FindPublishedGradeAsync(submissionId, db, ct);
         if (existing is not null) return Results.Ok(existing);
 

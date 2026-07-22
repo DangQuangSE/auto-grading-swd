@@ -44,8 +44,9 @@ public class AiGradingJobTests
     private sealed class StubCatalogApiClient(Guid criterionId) : ICatalogApiClient
     {
         public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
-        public Task<IReadOnlyList<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => 
+        public Task<IReadOnlyList<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<RubricCriterionDto>>(new List<RubricCriterionDto> { new RubricCriterionDto(criterionId, "C1", "Correctness", "Desc", 40m, 0) });
+        public Task<HashSet<Guid>> GetLecturerStudentIdsAsync(Guid lecturerId, Guid subjectId, CancellationToken cancellationToken) => Task.FromResult(new HashSet<Guid>());
     }
 
     private sealed class StubSubmissionApiClient(Guid assignmentId) : ISubmissionApiClient
@@ -79,6 +80,7 @@ public class AiGradingJobTests
     private sealed class MockEmptyCatalog : ICatalogApiClient {
         public Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<AssignmentDto?>(null);
         public Task<IReadOnlyList<RubricCriterionDto>> GetCriteriaForAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RubricCriterionDto>>(new List<RubricCriterionDto>());
+        public Task<HashSet<Guid>> GetLecturerStudentIdsAsync(Guid lecturerId, Guid subjectId, CancellationToken cancellationToken) => Task.FromResult(new HashSet<Guid>());
     }
 
     [Fact]
