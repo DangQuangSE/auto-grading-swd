@@ -32,6 +32,9 @@ namespace AutoGrading.NotificationSvc.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("IntegrationEventId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("datetimeoffset");
 
@@ -40,6 +43,10 @@ namespace AutoGrading.NotificationSvc.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IntegrationEventId")
+                        .IsUnique()
+                        .HasFilter("[IntegrationEventId] IS NOT NULL");
 
                     b.ToTable("audit_events", (string)null);
                 });

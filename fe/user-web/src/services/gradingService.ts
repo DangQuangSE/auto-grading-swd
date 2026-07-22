@@ -1,12 +1,4 @@
-import { apiGet } from "../lib/apiClient";
-
-export async function triggerExtraction(_submissionId: string, _actorId?: string) {
-  return Promise.resolve(null);
-}
-
-export async function triggerAiGrading(_submissionId: string, _actorId?: string) {
-  return Promise.resolve(null);
-}
+import { ApiError, apiGet } from "../lib/apiClient";
 
 export type AiCriterionScore = {
   id: string;
@@ -38,14 +30,20 @@ export type FinalGrade = {
 };
 
 export async function getGradingRuns(submissionId: string): Promise<AiGradingRun[]> {
-  const runs = await apiGet<AiGradingRun[]>(`/grading/grades/${submissionId}/runs`);
-  return [...runs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  try {
+    const result = await apiGet<{ gradingRun?: AiGradingRun | null }>(`/grading/grades/${submissionId}/result`);
+    return result.gradingRun ? [result.gradingRun] : [];
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return [];
+    throw error;
+  }
 }
 
 export async function getFinalGrade(submissionId: string): Promise<FinalGrade | null> {
   try {
     return await apiGet<FinalGrade>(`/grading/grades/${submissionId}/final`);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
   }
 }

@@ -14,6 +14,7 @@ public class SubmissionDbContext(DbContextOptions<SubmissionDbContext> options) 
         {
             entity.ToTable("submissions");
             entity.Property(s => s.State).HasConversion<string>();
+            entity.HasIndex(s => new { s.AssignmentId, s.StudentId, s.AttemptNumber }).IsUnique();
             entity.HasMany(s => s.Artifacts)
                 .WithOne(a => a.Submission)
                 .HasForeignKey(a => a.SubmissionId)

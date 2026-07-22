@@ -24,6 +24,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
 builder.Services.AddScoped<RubricParsingJob>();
+builder.Services.AddScoped<EnrollmentQueries>();
+builder.Services.AddScoped<EnrollmentCommands>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -52,6 +54,7 @@ app.MapSubjectsEndpoints();
 app.MapAssignmentsEndpoints();
 app.MapRubricsEndpoints();
 app.MapClassesEndpoints();
+app.MapEnrollmentsEndpoints();
 app.MapHealthChecks("/health");
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {

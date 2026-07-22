@@ -1,0 +1,40 @@
+{
+  "mode": "verify",
+  "target": "phase-06-student-profile-ui",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-22T14:54:26.3211885Z",
+  "reviewed_files": [
+    "fe/user-web/src/lib/apiClient.ts",
+    "fe/user-web/src/services/subjectService.ts",
+    "fe/user-web/src/services/classService.ts",
+    "fe/user-web/src/services/enrollmentService.ts",
+    "fe/user-web/src/hooks/useEnrollments.ts",
+    "fe/user-web/src/pages/StudentProfilePage.tsx",
+    "fe/user-web/src/routes/AppRoutes.tsx",
+    "fe/user-web/src/components/AppShell.tsx"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-P6-001",
+      "severity": "MEDIUM",
+      "rule": "CORR_DEFINED_BRANCH_BEHAVIOR",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "fe/user-web/src/pages/StudentProfilePage.tsx:44",
+      "evidence": "Resolved: handleSave records a 409 for the selected subject after the mutation hook's awaited enrollment invalidation/refetch. The ordinary Save action is disabled while that conflict remains unconfirmed, an explicit 'Use refreshed data and retry' action enables the retry, and the subsequent submit reads selectedEnrollment.rowVersion from the refreshed React Query result. Subject changes, class changes, and successful saves all clear the conflict and confirmation state.",
+      "why_it_matters": "A retry can overwrite the newly refreshed enrollment without the student deliberately acknowledging the concurrent change, defeating the intended optimistic-concurrency review flow.",
+      "required_action": "Track the 409 conflict for the selected subject, prevent an ordinary retry, and expose an explicit confirmation action after the refreshed enrollment/version is available; clear that confirmation whenever the subject or class selection changes and after a successful save.",
+      "owner": "cook"
+    }
+  ],
+  "report_path": "plans/student-course-class-enrollment/quality/phase-06-student-profile-ui-quality-report.json"
+}

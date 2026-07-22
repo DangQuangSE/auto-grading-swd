@@ -14,6 +14,7 @@ export function AssignmentsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [maxAttempts, setMaxAttempts] = useState(1);
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { session } = useAuth();
@@ -34,6 +35,7 @@ export function AssignmentsPage() {
       description: description.trim() || undefined,
       dueDate: dueDate || undefined,
       createdBy: session.user.id,
+      maxAttempts,
     });
     setTitle("");
     setDescription("");
@@ -86,6 +88,9 @@ export function AssignmentsPage() {
         <Field label="Due date (optional)">
           <TextInput type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
         </Field>
+        <Field label="Maximum submission attempts">
+          <TextInput type="number" min="1" value={String(maxAttempts)} onChange={(event) => setMaxAttempts(Math.max(1, Number(event.target.value)))} required />
+        </Field>
         {createAssignment.error ? <FormMessage tone="error">{createAssignment.error.message}</FormMessage> : null}
         <Button type="submit" disabled={!subjectId || !title.trim() || createAssignment.isPending}>
           <Plus aria-hidden="true" />
@@ -106,6 +111,7 @@ export function AssignmentsPage() {
                   <th>Title</th>
                   <th>Description</th>
                   <th>Due date</th>
+                  <th>Attempts</th>
                   <th>Created</th>
                 </tr>
               </thead>
@@ -115,6 +121,7 @@ export function AssignmentsPage() {
                     <td>{assignment.title}</td>
                     <td>{assignment.description || "-"}</td>
                     <td>{assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : "-"}</td>
+                    <td>{assignment.maxAttempts ?? 1}</td>
                     <td>{new Date(assignment.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}

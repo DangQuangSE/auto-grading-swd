@@ -1,0 +1,19 @@
+{
+  "target": "phase-06-student-profile-ui",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-06-student-profile-ui-quality-report.json",
+  "reviewed_files": [
+    "fe/user-web/src/components/AppShell.tsx",
+    "fe/user-web/src/hooks/useEnrollments.ts",
+    "fe/user-web/src/lib/apiClient.ts",
+    "fe/user-web/src/pages/StudentProfilePage.tsx",
+    "fe/user-web/src/routes/AppRoutes.tsx",
+    "fe/user-web/src/services/classService.ts",
+    "fe/user-web/src/services/enrollmentService.ts",
+    "fe/user-web/src/services/subjectService.ts"
+  ],
+  "source_fingerprint": "sha256:4c4f3b9666dbbb90b4b6d704726062ffdd1835c0bac2e5f2cce008811cfc4b28",
+  "reviewed_at": "2026-07-22T14:54:26.3211885Z",
+  "open_blocking_findings": 0
+}

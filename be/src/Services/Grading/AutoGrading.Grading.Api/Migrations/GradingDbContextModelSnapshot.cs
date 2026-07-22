@@ -146,7 +146,45 @@ namespace AutoGrading.Grading.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FinalGradeId")
+                        .IsUnique();
+
+                    b.HasIndex("SubmissionId")
+                        .IsUnique();
+
                     b.ToTable("grade_publications", (string)null);
+                });
+
+            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.GradePublishedOutbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DispatchedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FinalGradeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("FinalScore")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid>("PublishedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DispatchedAt", "CreatedAt");
+
+                    b.ToTable("grade_published_outbox", (string)null);
                 });
 
             modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubric", b =>

@@ -1,0 +1,22 @@
+{
+  "target": "phase-02-admin-catalog-api-and-gateway",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-02-admin-catalog-api-and-gateway-quality-report.json",
+  "reviewed_files": [
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.Development.json",
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.Docker.json",
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.json",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.cs"
+  ],
+  "source_fingerprint": "sha256:2438722442b1fbd47ff695922428209283843efc7a81501c0fc8f40753aeddde",
+  "reviewed_at": "2026-07-22T00:30:00Z",
+  "open_blocking_findings": 0
+}

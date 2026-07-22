@@ -1,0 +1,69 @@
+{
+  "mode": "verify",
+  "target": "phase-05-admin-subject-class-ui",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-22T14:41:37.5720825Z",
+  "reviewed_files": [
+    "fe/admin-web/src/lib/apiClient.ts",
+    "fe/admin-web/src/services/subjectService.ts",
+    "fe/admin-web/src/services/classService.ts",
+    "fe/admin-web/src/services/enrollmentService.ts",
+    "fe/admin-web/src/hooks/useSubjects.ts",
+    "fe/admin-web/src/hooks/useClasses.ts",
+    "fe/admin-web/src/hooks/useEnrollments.ts",
+    "fe/admin-web/src/pages/SubjectsPage.tsx",
+    "fe/admin-web/src/pages/ClassManagementPage.tsx"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-P5-001",
+      "severity": "HIGH",
+      "rule": "TS_NO_FLOATING_ASYNC_IN_SYNC_CONTEXT",
+      "status": "RESOLVED",
+      "introduced_by_current_change": false,
+      "applicable": true,
+      "confidence": "high",
+      "location": "fe/admin-web/src/pages/SubjectsPage.tsx:24",
+      "evidence": "Resolved: handleSubmit now awaits createSubject.mutateAsync inside a try/catch at lines 31-42, so API rejection is consumed while the mutation state remains responsible for rendering the error.",
+      "why_it_matters": "A normal create-subject API failure can produce an unhandled Promise rejection in addition to the mutation error state, making failure behavior unreliable.",
+      "required_action": "Catch the mutateAsync rejection inside handleSubmit while continuing to render the mutation error state, matching the guarded mutation handlers on ClassManagementPage.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-P5-002",
+      "severity": "MEDIUM",
+      "rule": "CORR_DEFINED_BRANCH_BEHAVIOR",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "fe/admin-web/src/pages/SubjectsPage.tsx:45",
+      "evidence": "Resolved: handleRegistrationChange clears stale success text, awaits the mutation in a caught async flow, and records an explicit status-specific success message rendered through FormMessage at line 139. The click handler explicitly voids the fully caught Promise.",
+      "why_it_matters": "After the mutation completes, especially when refetch is delayed, an admin cannot reliably distinguish a successful state transition from an action that was not applied.",
+      "required_action": "Add an explicit, cleared-on-next-action success state/message for the affected subject registration transition while retaining current pending and error handling.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-P5-003",
+      "severity": "MEDIUM",
+      "rule": "CORR_DEFINED_BRANCH_BEHAVIOR",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "fe/admin-web/src/services/classService.ts:18",
+      "evidence": "Resolved: getClasses fetches the first bounded page and then each server-reported remaining page sequentially. listAllSubjects applies the same bounded page loop, and ClassManagementPage now consumes it through useAllSubjects, so dropdown inputs are not silently limited to the first 100 rows.",
+      "why_it_matters": "Once the catalog contains more than 100 classes or subjects, admins cannot assign later subjects or choose later replacement classes, so valid catalog operations silently become impossible.",
+      "required_action": "Keep API requests bounded but make the dropdown sources complete through paged/searchable selection or controlled multi-page loading, and preserve paging metadata instead of silently truncating it.",
+      "owner": "cook"
+    }
+  ],
+  "report_path": "plans/student-course-class-enrollment/quality/phase-05-admin-subject-class-ui-quality-report.json"
+}

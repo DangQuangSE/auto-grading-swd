@@ -1,0 +1,20 @@
+{
+  "target": "phase-05-admin-subject-class-ui",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-05-admin-subject-class-ui-quality-report.json",
+  "reviewed_files": [
+    "fe/admin-web/src/hooks/useClasses.ts",
+    "fe/admin-web/src/hooks/useEnrollments.ts",
+    "fe/admin-web/src/hooks/useSubjects.ts",
+    "fe/admin-web/src/lib/apiClient.ts",
+    "fe/admin-web/src/pages/ClassManagementPage.tsx",
+    "fe/admin-web/src/pages/SubjectsPage.tsx",
+    "fe/admin-web/src/services/classService.ts",
+    "fe/admin-web/src/services/enrollmentService.ts",
+    "fe/admin-web/src/services/subjectService.ts"
+  ],
+  "source_fingerprint": "sha256:b4537848248ffb4e0d1c314504514f860b7e9cc50c8bde610ae5cb7b92e9d39d",
+  "reviewed_at": "2026-07-22T14:41:37.5720825Z",
+  "open_blocking_findings": 0
+}

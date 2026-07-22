@@ -1,0 +1,57 @@
+{
+  "mode": "gate",
+  "target": "phase-02-admin-catalog-api-and-gateway",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-22T00:30:00Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.cs",
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.json",
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.Development.json",
+    "be/src/Gateway/AutoGrading.Gateway/appsettings.Docker.json"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-P2-001",
+      "severity": "HIGH",
+      "rule": "DOM_EXPLICIT_STATE_TRANSITION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs:128",
+      "evidence": "Resolved: UpdateRegistrationAsync now calls Enum.IsDefined(request.Status) before opening the transaction and returns invalid_registration_status for undefined values.",
+      "why_it_matters": "The registration state controls whether students may enroll. Persisting a value outside Open/Closed violates the domain state machine and makes authorization/availability behavior depend on an undefined state.",
+      "required_action": "Validate that request.Status is one of the defined RegistrationStatus values before starting the transaction and reject undefined values with the established validation error schema, or configure strict enum deserialization that rejects numeric/undefined values at the API boundary.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-P2-002",
+      "severity": "MEDIUM",
+      "rule": "CORR_BOUNDARY_VALIDATION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs:85; be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs:118",
+      "evidence": "Resolved: CreateSubjectAsync validates normalized code/name against 32/256 characters, and ValidateClassInput rejects normalized class names over 256 characters before persistence.",
+      "why_it_matters": "Invalid client data is delegated to the database and misclassified as a uniqueness conflict, so callers cannot distinguish malformed input from an actual duplicate and behavior depends on provider exceptions.",
+      "required_action": "Validate the documented 32/256-character limits after normalization in the endpoint boundary and return a validation response distinct from duplicate/conflict responses before calling SaveChangesAsync.",
+      "owner": "cook"
+    }
+  ],
+  "report_path": "plans/student-course-class-enrollment/quality/phase-02-admin-catalog-api-and-gateway-quality-report.json"
+}

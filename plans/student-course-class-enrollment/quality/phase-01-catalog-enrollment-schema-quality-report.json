@@ -1,0 +1,68 @@
+{
+  "mode": "verify",
+  "target": "phase-01-catalog-enrollment-schema",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-22T14:23:34.0187817Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.Designer.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/CatalogDbContextModelSnapshot.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-P1-001",
+      "severity": "HIGH",
+      "rule": "CHG_MIGRATION_DEPLOY_ORDER_SAFE",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs:5",
+      "evidence": "The Class constructor now creates Id and initializes EnrollmentSubjectId from the same Id (lines 5-9), so the existing Class writer satisfies CK_classes_EnrollmentSubject without inventing a Subject.",
+      "why_it_matters": "The additive rollout no longer breaks the currently deployed legacy class-create path.",
+      "required_action": "None; verified resolved.",
+      "owner": "none"
+    },
+    {
+      "id": "QUAL-P1-002",
+      "severity": "MEDIUM",
+      "rule": "CHG_SCOPE_DISCIPLINE",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.cs:14",
+      "evidence": "The migration Up/Down now contains only Subject registration, Class subject/normalization rollout, and student enrollment operations; rubric_criteria.Code is absent from the migration, designer, and snapshot delta.",
+      "why_it_matters": "Feature rollback no longer removes unrelated rubric data.",
+      "required_action": "None; verified resolved.",
+      "owner": "none"
+    },
+    {
+      "id": "QUAL-P1-003",
+      "severity": "MEDIUM",
+      "rule": "DOM_SINGLE_SOURCE",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs:27",
+      "evidence": "The explicit converter writes lowercase enum names and parses case-insensitively (lines 27-33); the generated migration default is exactly `closed` at line 20 and the model artifacts agree.",
+      "why_it_matters": "Persistence now has one representation aligned with the approved open/closed domain contract.",
+      "required_action": "None; verified resolved.",
+      "owner": "none"
+    }
+  ],
+  "report_path": "plans/student-course-class-enrollment/quality/phase-01-catalog-enrollment-schema-quality-report.json"
+}

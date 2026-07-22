@@ -1,19 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClass, fetchLecturers, getClasses, updateClassLecturer } from "../services/classService";
+import { createClass, fetchLecturers, getClasses, updateClass } from "../services/classService";
 
 export function useClasses() {
-  return useQuery({
-    queryKey: ["classes"],
-    queryFn: getClasses,
-  });
+  return useQuery({ queryKey: ["classes"], queryFn: getClasses });
 }
 
 export function useLecturers() {
-  return useQuery({
-    queryKey: ["lecturers"],
-    queryFn: fetchLecturers,
-    staleTime: 30_000,
-  });
+  return useQuery({ queryKey: ["lecturers"], queryFn: fetchLecturers, staleTime: 30_000 });
 }
 
 export function useCreateClass() {
@@ -26,11 +19,16 @@ export function useCreateClass() {
   });
 }
 
-export function useUpdateClassLecturer() {
+export function useUpdateClass() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ classId, lecturerId }: { classId: string; lecturerId: string }) =>
-      updateClassLecturer(classId, lecturerId),
+    mutationFn: ({
+      classId,
+      changes,
+    }: {
+      classId: string;
+      changes: { lecturerId?: string; subjectId?: string };
+    }) => updateClass(classId, changes),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["classes"] });
     },

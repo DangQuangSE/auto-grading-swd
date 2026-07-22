@@ -63,6 +63,9 @@ namespace AutoGrading.SubmissionSvc.Api.Migrations
                     b.Property<Guid>("AssignmentId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -84,6 +87,9 @@ namespace AutoGrading.SubmissionSvc.Api.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId", "StudentId", "AttemptNumber")
+                        .IsUnique();
 
                     b.ToTable("submissions", (string)null);
                 });

@@ -1,0 +1,17 @@
+{
+  "target": "phase-04-admin-enrollment-correction-api",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-04-admin-enrollment-correction-api-quality-report.json",
+  "reviewed_files": [
+    "be/src/BuildingBlocks/AutoGrading.Contracts/Pagination/PaginationDefaults.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs"
+  ],
+  "source_fingerprint": "sha256:3d550ea0ea7278694bf968f8db6672d57297cb2abd9b5842cec3706bca3b91fc",
+  "reviewed_at": "2026-07-22T14:36:33.4026237+00:00",
+  "open_blocking_findings": 0
+}

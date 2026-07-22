@@ -4,6 +4,7 @@ using AutoGrading.Common.Jobs;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.SubmissionSvc.Api.Data;
+using AutoGrading.SubmissionSvc.Api.Clients;
 using AutoGrading.SubmissionSvc.Api.Endpoints;
 using AutoGrading.SubmissionSvc.Api.Jobs;
 using AutoGrading.SubmissionSvc.Api.Parsing;
@@ -19,8 +20,13 @@ builder.Services.AddDbContext<SubmissionDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SubmissionDb")));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddJwtTokenGenerator(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration);
+builder.Services.AddTransient<ServiceAuthHandler>();
+builder.Services.AddHttpClient<ICatalogApiClient, CatalogApiClient>(client =>
+        client.BaseAddress = new Uri(builder.Configuration["Services:CatalogApiBaseUrl"] ?? "http://catalog-api:8080"))
+    .AddHttpMessageHandler<ServiceAuthHandler>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));

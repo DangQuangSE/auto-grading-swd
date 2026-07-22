@@ -37,6 +37,9 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.Property<DateTimeOffset?>("DueDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("MaxAttempts")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("SubjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -61,6 +64,9 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid>("EnrollmentSubjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("LecturerId")
                         .HasColumnType("uniqueidentifier");
 
@@ -69,11 +75,28 @@ namespace AutoGrading.Catalog.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LecturerId");
 
-                    b.ToTable("classes", (string)null);
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("SubjectId", "NormalizedName")
+                        .IsUnique()
+                        .HasFilter("[SubjectId] IS NOT NULL");
+
+                    b.ToTable("classes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_classes_EnrollmentSubject", "([SubjectId] IS NULL AND [EnrollmentSubjectId] = [Id]) OR [EnrollmentSubjectId] = [SubjectId]");
+                        });
                 });
 
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Rubric", b =>
@@ -165,6 +188,49 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.ToTable("rubric_criteria", (string)null);
                 });
 
+            modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.StudentEnrollment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("ClassId", "SubjectId");
+
+                    b.HasIndex("StudentId", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("student_enrollments", (string)null);
+                });
+
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Subject", b =>
                 {
                     b.Property<Guid>("Id")
@@ -184,6 +250,13 @@ namespace AutoGrading.Catalog.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("RegistrationStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValueSql("'closed'");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -199,6 +272,16 @@ namespace AutoGrading.Catalog.Api.Migrations
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Class", b =>
+                {
+                    b.HasOne("AutoGrading.Catalog.Api.Domain.Subject", "Subject")
+                        .WithMany("Classes")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Subject");
                 });
@@ -232,9 +315,34 @@ namespace AutoGrading.Catalog.Api.Migrations
                     b.Navigation("Rubric");
                 });
 
+            modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.StudentEnrollment", b =>
+                {
+                    b.HasOne("AutoGrading.Catalog.Api.Domain.Subject", "Subject")
+                        .WithMany("Enrollments")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AutoGrading.Catalog.Api.Domain.Class", "Class")
+                        .WithMany("Enrollments")
+                        .HasForeignKey("ClassId", "SubjectId")
+                        .HasPrincipalKey("Id", "EnrollmentSubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Assignment", b =>
                 {
                     b.Navigation("Rubrics");
+                });
+
+            modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Class", b =>
+                {
+                    b.Navigation("Enrollments");
                 });
 
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Rubric", b =>
@@ -245,6 +353,10 @@ namespace AutoGrading.Catalog.Api.Migrations
             modelBuilder.Entity("AutoGrading.Catalog.Api.Domain.Subject", b =>
                 {
                     b.Navigation("Assignments");
+
+                    b.Navigation("Classes");
+
+                    b.Navigation("Enrollments");
                 });
 #pragma warning restore 612, 618
         }

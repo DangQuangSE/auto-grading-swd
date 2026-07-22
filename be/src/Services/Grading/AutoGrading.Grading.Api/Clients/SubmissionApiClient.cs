@@ -27,6 +27,11 @@ public sealed class SubmissionApiClient(HttpClient httpClient) : ISubmissionApiC
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    public Task<SubmissionDto?> GetSubmissionAsync(Guid submissionId, CancellationToken cancellationToken) =>
-        httpClient.GetFromJsonAsync<SubmissionDto>($"/submissions/{submissionId}", JsonOptions, cancellationToken);
+    public async Task<SubmissionDto?> GetSubmissionAsync(Guid submissionId, CancellationToken cancellationToken)
+    {
+        var response = await httpClient.GetAsync($"/submissions/{submissionId}", cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SubmissionDto>(JsonOptions, cancellationToken);
+    }
 }

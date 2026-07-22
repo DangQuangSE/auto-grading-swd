@@ -5,7 +5,7 @@ import { Field, TextInput } from "../components/ui/Field";
 import { FormMessage } from "../components/ui/FormMessage";
 import { Pagination } from "../components/ui/Pagination";
 import { StateBlock } from "../components/ui/StateBlock";
-import { useCreateSubject, useSubjects } from "../hooks/useSubjects";
+import { useCreateSubject, useSubjects, useUpdateSubjectRegistration } from "../hooks/useSubjects";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -14,9 +14,12 @@ export function SubjectsPage() {
   const [name, setName] = useState("");
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [registrationMessage, setRegistrationMessage] = useState("");
   const { session } = useAuth();
   const subjects = useSubjects({ page, pageSize });
   const createSubject = useCreateSubject();
+  const updateRegistration = useUpdateSubjectRegistration();
+  const canManageRegistration = session?.user.role === "admin";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,14 +28,28 @@ export function SubjectsPage() {
       return;
     }
 
-    await createSubject.mutateAsync({
-      code: code.trim(),
-      name: name.trim(),
-      createdBy: session.user.id,
-    });
-    setCode("");
-    setName("");
-    setPage(DEFAULT_PAGE);
+    try {
+      await createSubject.mutateAsync({
+        code: code.trim(),
+        name: name.trim(),
+        createdBy: session.user.id,
+      });
+      setCode("");
+      setName("");
+      setPage(DEFAULT_PAGE);
+    } catch {
+      // Mutation state renders the error.
+    }
+  }
+
+  async function handleRegistrationChange(subjectId: string, status: "open" | "closed") {
+    setRegistrationMessage("");
+    try {
+      await updateRegistration.mutateAsync({ subjectId, status });
+      setRegistrationMessage(`Registration is now ${status}.`);
+    } catch {
+      // Mutation state renders the error.
+    }
   }
 
   function handlePageSizeChange(nextPageSize: number) {
@@ -77,7 +94,9 @@ export function SubjectsPage() {
                 <tr>
                   <th>Code</th>
                   <th>Name</th>
+                  <th>Registration</th>
                   <th>Created</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +104,23 @@ export function SubjectsPage() {
                   <tr key={subject.id}>
                     <td>{subject.code}</td>
                     <td>{subject.name}</td>
+                    <td>{subject.registrationStatus === "open" ? "Open" : "Closed"}</td>
                     <td>{new Date(subject.createdAt).toLocaleString()}</td>
+                    <td>
+                      {canManageRegistration ? (
+                        <Button
+                          type="button"
+                          variant="text"
+                          disabled={updateRegistration.isPending}
+                          onClick={() => void handleRegistrationChange(
+                            subject.id,
+                            subject.registrationStatus === "open" ? "closed" : "open",
+                          )}
+                        >
+                          {subject.registrationStatus === "open" ? "Close registration" : "Open registration"}
+                        </Button>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -100,6 +135,8 @@ export function SubjectsPage() {
             />
           </>
         ) : null}
+        {updateRegistration.error ? <FormMessage tone="error">{updateRegistration.error.message}</FormMessage> : null}
+        {registrationMessage ? <FormMessage tone="success">{registrationMessage}</FormMessage> : null}
       </div>
     </section>
   );

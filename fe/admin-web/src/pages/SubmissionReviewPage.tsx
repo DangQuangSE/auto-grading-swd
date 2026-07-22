@@ -9,7 +9,7 @@ import { StateBlock } from "../components/ui/StateBlock";
 import { useClasses } from "../hooks/useClasses";
 import { useGradeTable } from "../hooks/useGradeTable";
 import { useSubjects, useAssignments } from "../hooks/useSubjects";
-import { usePublishGrade, useRecentSubmissions, useRegrade, useSaveFinalScore, useSubmissionReview } from "../hooks/useSubmissions";
+import { usePublishAllGrades, usePublishGrade, useRecentSubmissions, useRegrade, useSaveFinalScore, useSubmissionReview } from "../hooks/useSubmissions";
 import { useAuth } from "../providers/AuthProvider";
 
 function matchesFilter(value: string | null, query: string): boolean {
@@ -60,6 +60,7 @@ export function SubmissionReviewPage() {
   const review = useSubmissionReview(submissionId);
   const saveFinalScore = useSaveFinalScore();
   const publishGrade = usePublishGrade();
+  const publishAll = usePublishAllGrades();
   const regrade = useRegrade();
   const [finalScores, setFinalScores] = useState<Record<string, number>>({});
   const [assignmentDescription, setAssignmentDescription] = useState("");
@@ -128,6 +129,15 @@ export function SubmissionReviewPage() {
         <header className="page-header">
           <p>Review</p>
           <h1>Select a submission</h1>
+          {session?.user.role === "admin" ? (
+            <>
+              <Button type="button" onClick={() => publishAll.mutate()} disabled={publishAll.isPending}>
+                <Send aria-hidden="true" /> {publishAll.isPending ? "Publishing..." : "Publish all ready grades"}
+              </Button>
+              {publishAll.data ? <FormMessage tone="success">{`Published ${publishAll.data.published}; skipped ${publishAll.data.skipped}; failed ${publishAll.data.failed}.`}</FormMessage> : null}
+              {publishAll.error ? <FormMessage tone="error">{publishAll.error.message}</FormMessage> : null}
+            </>
+          ) : null}
         </header>
         
         <div className="form-panel">
