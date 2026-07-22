@@ -41,12 +41,14 @@ public static class AssignmentsEndpoints
 
         group.MapPost("/", async (CreateAssignmentRequest request, CatalogDbContext db, CancellationToken ct) =>
             {
+                if (request.MaxAttempts < 1) return Results.BadRequest(new { error = "MaxAttempts must be at least 1." });
                 var assignment = new Assignment
                 {
                     SubjectId = request.SubjectId,
                     Title = request.Title,
                     Description = request.Description,
                     DueDate = request.DueDate,
+                    MaxAttempts = request.MaxAttempts,
                 };
                 db.Assignments.Add(assignment);
                 await db.SaveChangesAsync(ct);
@@ -54,8 +56,23 @@ public static class AssignmentsEndpoints
             })
             .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
 
+        group.MapPut("/{id:guid}", async (Guid id, UpdateAssignmentRequest request, CatalogDbContext db, CancellationToken ct) =>
+            {
+                if (request.MaxAttempts < 1) return Results.BadRequest(new { error = "MaxAttempts must be at least 1." });
+                var assignment = await db.Assignments.FirstOrDefaultAsync(a => a.Id == id, ct);
+                if (assignment is null) return Results.NotFound();
+                assignment.Title = request.Title;
+                assignment.Description = request.Description;
+                assignment.DueDate = request.DueDate;
+                assignment.MaxAttempts = request.MaxAttempts;
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(assignment);
+            })
+            .RequireAuthorization(policy => policy.RequireRole("lecturer", "admin"));
+
         return app;
     }
 }
 
-public sealed record CreateAssignmentRequest(Guid SubjectId, string Title, string? Description, DateTimeOffset? DueDate);
+public sealed record CreateAssignmentRequest(Guid SubjectId, string Title, string? Description, DateTimeOffset? DueDate, int MaxAttempts = 1);
+public sealed record UpdateAssignmentRequest(string Title, string? Description, DateTimeOffset? DueDate, int MaxAttempts);

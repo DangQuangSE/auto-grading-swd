@@ -64,3 +64,8 @@ export async function publishSubmissionGrade(params: {
     notes: null,
   });
 }
+
+export type PublishAllResult = { published: number; skipped: number; failed: number };
+export async function publishAllGrades() {
+  return apiPost<PublishAllResult>("/grading/grades/publish-all");
+}

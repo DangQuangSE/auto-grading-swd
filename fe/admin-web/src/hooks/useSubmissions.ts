@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSubmissionReviewData, listRecentSubmissions } from "../services/gradingService";
-import { publishSubmissionGrade, saveFinalCriterionScore, triggerRegrade } from "../services/reviewService";
+import { publishAllGrades, publishSubmissionGrade, saveFinalCriterionScore, triggerRegrade } from "../services/reviewService";
 
 export function useRecentSubmissions() {
   return useQuery({
@@ -37,6 +37,17 @@ export function usePublishGrade() {
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["submission-review", variables.submissionId] });
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
+    },
+  });
+}
+
+export function usePublishAllGrades() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: publishAllGrades,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      await queryClient.invalidateQueries({ queryKey: ["submission-review"] });
     },
   });
 }

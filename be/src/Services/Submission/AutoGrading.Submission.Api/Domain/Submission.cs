@@ -5,6 +5,7 @@ public class Submission
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AssignmentId { get; set; }
     public Guid StudentId { get; set; }
+    public int AttemptNumber { get; set; }
     public string ReportObjectKey { get; set; } = string.Empty;
     public string? DiagramObjectKey { get; set; }
     public SubmissionState State { get; set; } = SubmissionState.Uploaded;

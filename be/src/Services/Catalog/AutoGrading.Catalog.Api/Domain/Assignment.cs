@@ -7,6 +7,7 @@ public class Assignment
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTimeOffset? DueDate { get; set; }
+    public int MaxAttempts { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public Subject? Subject { get; set; }

@@ -4,6 +4,7 @@ using AutoGrading.Grading.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AutoGrading.Grading.Api.Migrations
 {
     [DbContext(typeof(GradingDbContext))]
-    partial class GradingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722164507_MakeGradePublicationIdempotent")]
+    partial class MakeGradePublicationIdempotent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -153,38 +156,6 @@ namespace AutoGrading.Grading.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("grade_publications", (string)null);
-                });
-
-            modelBuilder.Entity("AutoGrading.Grading.Api.Domain.GradePublishedOutbox", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset?>("DispatchedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("FinalGradeId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("FinalScore")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<Guid>("PublishedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SubmissionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DispatchedAt", "CreatedAt");
-
-                    b.ToTable("grade_published_outbox", (string)null);
                 });
 
             modelBuilder.Entity("AutoGrading.Grading.Api.Domain.LocalRubric", b =>

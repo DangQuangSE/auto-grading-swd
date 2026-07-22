@@ -10,12 +10,13 @@ export type Subject = {
   registrationStatus: "open" | "closed";
 };
 
-type Assignment = {
+export type Assignment = {
   id: string;
   subjectId: string;
   title: string;
   description?: string | null;
   dueDate?: string | null;
+  maxAttempts: number;
   createdAt: string;
 };
 

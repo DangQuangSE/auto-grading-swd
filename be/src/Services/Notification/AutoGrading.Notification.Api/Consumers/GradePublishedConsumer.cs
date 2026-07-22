@@ -3,6 +3,7 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
 using AutoGrading.NotificationSvc.Api.Data;
 using AutoGrading.NotificationSvc.Api.Domain;
+using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.NotificationSvc.Api.Consumers;
 
@@ -12,8 +13,10 @@ public sealed class GradePublishedConsumer(NotificationDbContext db, ILogger<Gra
 {
     public async Task HandleAsync(GradePublished @event, CancellationToken cancellationToken = default)
     {
+        if (await db.AuditEvents.AnyAsync(x => x.IntegrationEventId == @event.EventId, cancellationToken)) return;
         db.AuditEvents.Add(new AuditEvent
         {
+            IntegrationEventId = @event.EventId,
             EventType = nameof(GradePublished),
             Payload = JsonSerializer.Serialize(@event),
         });
@@ -26,7 +29,16 @@ public sealed class GradePublishedConsumer(NotificationDbContext db, ILogger<Gra
             Message = $"Final score {@event.FinalScore} was published for submission {@event.SubmissionId}.",
         });
 
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            if (await db.AuditEvents.AnyAsync(x => x.IntegrationEventId == @event.EventId, cancellationToken)) return;
+            throw;
+        }
 
         logger.LogInformation(
             "Grade published for submission {SubmissionId}: {Score}", @event.SubmissionId, @event.FinalScore);

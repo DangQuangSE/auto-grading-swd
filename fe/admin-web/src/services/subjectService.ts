@@ -15,6 +15,7 @@ export type Assignment = {
   title: string;
   description?: string | null;
   dueDate?: string | null;
+  maxAttempts?: number;
   createdAt: string;
 };
 
@@ -68,11 +69,13 @@ export async function createAssignment(params: {
   description?: string;
   dueDate?: string;
   createdBy: string;
+  maxAttempts: number;
 }) {
   return apiPost<Assignment>("/catalog/assignments", {
     subjectId: params.subjectId,
     title: params.title,
     description: params.description ?? "",
     dueDate: params.dueDate ?? null,
+    maxAttempts: params.maxAttempts,
   });
 }

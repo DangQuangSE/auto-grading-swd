@@ -47,6 +47,7 @@ builder.Services.AddHttpClient<ISubmissionApiClient, SubmissionApiClient>(client
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();
 builder.Services.AddScoped<RubricConfirmedHandler>();
+builder.Services.AddHostedService<GradePublishedOutboxDispatcher>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

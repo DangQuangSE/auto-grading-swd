@@ -11,6 +11,7 @@ export type SubmissionRecord = {
   state: GradingState;
   createdAt: string;
   updatedAt: string;
+  attemptNumber: number;
 };
 
 export async function createSubmission(params: {
@@ -26,7 +27,6 @@ export async function createSubmission(params: {
 
   const form = new FormData();
   form.set("AssignmentId", params.assignmentId);
-  form.set("StudentId", params.studentId);
   form.set("ReportFile", params.reportFile);
   if (params.diagramFile) {
     form.set("DiagramFile", params.diagramFile);

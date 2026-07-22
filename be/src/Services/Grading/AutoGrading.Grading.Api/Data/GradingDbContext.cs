@@ -9,6 +9,7 @@ public class GradingDbContext(DbContextOptions<GradingDbContext> options) : DbCo
     public DbSet<AiCriterionScore> AiCriterionScores => Set<AiCriterionScore>();
     public DbSet<FinalGrade> FinalGrades => Set<FinalGrade>();
     public DbSet<GradePublication> GradePublications => Set<GradePublication>();
+    public DbSet<GradePublishedOutbox> GradePublishedOutbox => Set<GradePublishedOutbox>();
     public DbSet<LocalRubric> LocalRubrics => Set<LocalRubric>();
     public DbSet<LocalRubricCriterion> LocalRubricCriteria => Set<LocalRubricCriterion>();
 
@@ -41,6 +42,14 @@ public class GradingDbContext(DbContextOptions<GradingDbContext> options) : DbCo
         modelBuilder.Entity<GradePublication>(entity =>
         {
             entity.ToTable("grade_publications");
+            entity.HasIndex(p => p.SubmissionId).IsUnique();
+            entity.HasIndex(p => p.FinalGradeId).IsUnique();
+        });
+        modelBuilder.Entity<GradePublishedOutbox>(entity =>
+        {
+            entity.ToTable("grade_published_outbox");
+            entity.Property(x => x.FinalScore).HasPrecision(5, 2);
+            entity.HasIndex(x => new { x.DispatchedAt, x.CreatedAt });
         });
 
         modelBuilder.Entity<LocalRubric>(entity =>
