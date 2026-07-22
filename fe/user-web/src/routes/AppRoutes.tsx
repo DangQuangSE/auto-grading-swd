@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StateBlock } from "../components/ui/StateBlock";
 import { RequireAuth } from "./RequireAuth";
+import { courseEnrollmentEnabled } from "../lib/features";
 
 const LoginPage = lazy(() => import("../pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const StudentResultPage = lazy(() =>
@@ -10,6 +11,9 @@ const StudentResultPage = lazy(() =>
 );
 const StudentSubmissionPage = lazy(() =>
   import("../pages/StudentSubmissionPage").then((module) => ({ default: module.StudentSubmissionPage })),
+);
+const StudentProfilePage = lazy(() =>
+  import("../pages/StudentProfilePage").then((module) => ({ default: module.StudentProfilePage })),
 );
 
 export function AppRoutes() {
@@ -29,6 +33,7 @@ export function AppRoutes() {
             <Route path="/submit" element={<StudentSubmissionPage />} />
             <Route path="/result/:submissionId" element={<StudentResultPage />} />
             <Route path="/result" element={<StudentResultPage />} />
+            {courseEnrollmentEnabled ? <Route path="/profile" element={<StudentProfilePage />} /> : null}
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/submit" replace />} />

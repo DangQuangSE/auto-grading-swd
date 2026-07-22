@@ -1,10 +1,11 @@
-import { apiGet, apiPost } from "../lib/apiClient";
+import { apiGet, apiPatch, apiPost } from "../lib/apiClient";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, type PagedResult } from "../lib/pagination";
 
 export type Subject = {
   id: string;
   code: string;
   name: string;
+  registrationStatus: "open" | "closed";
   createdAt: string;
 };
 
@@ -30,6 +31,20 @@ export async function listSubjects(params: { page?: number; pageSize?: number; s
 
 export async function createSubject(params: { code: string; name: string; createdBy: string }) {
   return apiPost<Subject>("/catalog/subjects", { code: params.code, name: params.name });
+}
+
+export async function listAllSubjects() {
+  const first = await listSubjects({ page: 1, pageSize: 100 });
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const next = await listSubjects({ page, pageSize: 100 });
+    items.push(...next.items);
+  }
+  return items;
+}
+
+export async function updateSubjectRegistration(subjectId: string, status: "open" | "closed") {
+  return apiPatch<Subject>(`/catalog/subjects/${subjectId}/registration`, { status });
 }
 
 export async function listAssignments(params: { subjectId?: string; page?: number; pageSize?: number }) {

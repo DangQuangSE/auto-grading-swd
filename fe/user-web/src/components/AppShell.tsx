@@ -1,12 +1,14 @@
 import { FileUp, GraduationCap, LogOut, UserRound } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
+import { courseEnrollmentEnabled } from "../lib/features";
 
 export type AppView = "student" | "result";
 
 const navItems: Array<{ to: string; label: string; icon: typeof FileUp }> = [
   { to: "/submit", label: "Submit", icon: FileUp },
   { to: "/result", label: "Result", icon: UserRound },
+  { to: "/profile", label: "Profile", icon: UserRound },
 ];
 
 export function AppShell() {
@@ -20,7 +22,7 @@ export function AppShell() {
           <span>Auto Grading</span>
         </div>
         <nav className="sidebar-nav" aria-label="Main navigation">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.to !== "/profile" || courseEnrollmentEnabled).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

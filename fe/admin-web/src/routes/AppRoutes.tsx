@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StateBlock } from "../components/ui/StateBlock";
 import { RequireAuth } from "./RequireAuth";
+import { RequireAdmin } from "./RequireAdmin";
 
 const DashboardPage = lazy(() => import("../pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
 const LoginPage = lazy(() => import("../pages/LoginPage").then((module) => ({ default: module.LoginPage })));
@@ -47,7 +48,9 @@ export function AppRoutes() {
             <Route path="/subjects" element={<SubjectsPage />} />
             <Route path="/assignments" element={<AssignmentsPage />} />
             <Route path="/rubrics" element={<RubricUploadPage />} />
-            <Route path="/classes" element={<ClassManagementPage />} />
+            <Route element={<RequireAdmin />}>
+              <Route path="/classes" element={<ClassManagementPage />} />
+            </Route>
             <Route path="/roster" element={<RosterPage />} />
             <Route path="/roster/import" element={<BulkImportPage />} />
             <Route path="/grades" element={<GradeExportPage />} />

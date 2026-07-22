@@ -1,0 +1,21 @@
+{
+  "target": "phase-03-student-self-enrollment-api",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-03-student-self-enrollment-api-quality-report.json",
+  "reviewed_files": [
+    "be/src/BuildingBlocks/AutoGrading.Contracts/Pagination/PaginationDefaults.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs"
+  ],
+  "source_fingerprint": "sha256:325949046fdbc218d1bbf71a3267167ed2819083a7e554ec4393fb7358360b22",
+  "reviewed_at": "2026-07-22T14:33:09.5473821+00:00",
+  "open_blocking_findings": 0
+}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
+import { courseEnrollmentEnabled } from "../lib/features";
 
 const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,7 +36,7 @@ export function AppShell() {
           <span>Auto Grading Admin</span>
         </div>
         <nav className="sidebar-nav" aria-label="Main navigation">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.to !== "/classes" || (courseEnrollmentEnabled && session?.user.role === "admin")).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

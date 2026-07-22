@@ -14,6 +14,7 @@ public class CatalogDbContext : DbContext
     public DbSet<Rubric> Rubrics => Set<Rubric>();
     public DbSet<RubricCriterion> RubricCriteria => Set<RubricCriterion>();
     public DbSet<Class> Classes => Set<Class>();
+    public DbSet<StudentEnrollment> StudentEnrollments => Set<StudentEnrollment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,13 @@ public class CatalogDbContext : DbContext
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Code).IsRequired().HasMaxLength(32);
             entity.Property(s => s.Name).IsRequired().HasMaxLength(256);
+            entity.Property(s => s.RegistrationStatus)
+                .IsRequired()
+                .HasConversion(
+                    status => status.ToString().ToLowerInvariant(),
+                    value => Enum.Parse<RegistrationStatus>(value, true))
+                .HasMaxLength(16)
+                .HasDefaultValue("closed");
             entity.HasIndex(s => s.Code).IsUnique();
         });
 
@@ -74,7 +82,40 @@ public class CatalogDbContext : DbContext
             entity.ToTable("classes");
             entity.HasKey(c => c.Id);
             entity.Property(c => c.Name).IsRequired().HasMaxLength(256);
+            entity.Property(c => c.NormalizedName).IsRequired().HasMaxLength(256);
             entity.HasIndex(c => c.LecturerId);
+            entity.HasIndex(c => c.SubjectId);
+            entity.HasIndex(c => new { c.SubjectId, c.NormalizedName })
+                .IsUnique()
+                .HasFilter("[SubjectId] IS NOT NULL");
+            entity.HasAlternateKey(c => new { c.Id, c.EnrollmentSubjectId });
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_classes_EnrollmentSubject",
+                "([SubjectId] IS NULL AND [EnrollmentSubjectId] = [Id]) OR [EnrollmentSubjectId] = [SubjectId]"));
+            entity.HasOne(c => c.Subject)
+                .WithMany(s => s.Classes)
+                .HasForeignKey(c => c.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StudentEnrollment>(entity =>
+        {
+            entity.ToTable("student_enrollments");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.HasIndex(e => new { e.StudentId, e.SubjectId }).IsUnique();
+            entity.HasIndex(e => e.StudentId);
+            entity.HasIndex(e => e.SubjectId);
+            entity.HasIndex(e => e.ClassId);
+            entity.HasOne(e => e.Subject)
+                .WithMany(s => s.Enrollments)
+                .HasForeignKey(e => e.SubjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Class)
+                .WithMany(c => c.Enrollments)
+                .HasForeignKey(e => new { e.ClassId, e.SubjectId })
+                .HasPrincipalKey(c => new { c.Id, c.EnrollmentSubjectId })
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

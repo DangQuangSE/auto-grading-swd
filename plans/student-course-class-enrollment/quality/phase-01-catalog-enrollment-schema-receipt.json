@@ -1,0 +1,19 @@
+{
+  "target": "phase-01-catalog-enrollment-schema",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/student-course-class-enrollment/quality/phase-01-catalog-enrollment-schema-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.Designer.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/20260722142009_AddStudentSubjectEnrollments.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Migrations/CatalogDbContextModelSnapshot.cs"
+  ],
+  "source_fingerprint": "sha256:8ed3ed55eaf20e11fdc02ca42681ab3217034745335b3de68148a208a7d6a312",
+  "reviewed_at": "2026-07-22T14:23:34.0187817Z",
+  "open_blocking_findings": 0
+}

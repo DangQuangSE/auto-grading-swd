@@ -1,0 +1,70 @@
+{
+  "mode": "verify",
+  "target": "phase-03-student-self-enrollment-api",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-22T14:33:09.5473821+00:00",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Data/CatalogDbContext.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/StudentEnrollment.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Subject.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/Class.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Domain/RegistrationStatus.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/BuildingBlocks/AutoGrading.Contracts/Pagination/PaginationDefaults.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-P3-001",
+      "severity": "MEDIUM",
+      "rule": "CORR_BOUNDARY_VALIDATION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs:241",
+      "evidence": "Resolved: TryDecodeRowVersion now returns true only when the decoded payload is exactly 8 bytes; malformed base64 and wrong-length values both produce invalid_row_version/400 before a transaction begins.",
+      "why_it_matters": "Malformed boundary input is misclassified as valid state and produces a misleading 409 response instead of the phase-required 400 response.",
+      "required_action": "Require the decoded rowVersion to be exactly 8 bytes before entering the transaction; reject any other decoded length with invalid_row_version/400.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-P3-002",
+      "severity": "MEDIUM",
+      "rule": "ERR_TAXONOMY_CONSISTENT",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs:163",
+      "evidence": "Resolved: concurrency and recognized SQL constraint errors roll back, clear tracking, and load the caller's current enrollment representation. IsConstraintConflict limits 409 mapping to SQL Server 2601, 2627, and 547; unexpected database failures are no longer swallowed by this boundary.",
+      "why_it_matters": "Clients cannot distinguish retryable infrastructure failure from a business conflict and cannot reconcile stale state from the deterministic 409 contract required by this phase.",
+      "required_action": "Rollback/clear or use a fresh read context, return the current enrollment representation and rowVersion for stale/unique conflicts when present, identify only known SQL constraint/concurrency cases as 409, and allow unexpected database failures to use the service's system-error response path.",
+      "owner": "cook"
+    },
+    {
+      "id": "QUAL-P3-003",
+      "severity": "LOW",
+      "rule": "CORR_BOUNDARY_VALIDATION",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "medium",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs:40",
+      "evidence": "Resolved: offset arithmetic uses Int64 and returns a bounded empty page whenever the offset is beyond totalCount, before the guarded Int32 cast passed to Skip.",
+      "why_it_matters": "A syntactically valid but extreme query can result in a negative/invalid offset and a 500-class response rather than an intentional empty page or validation error.",
+      "required_action": "Bound page or compute/validate the offset with a wider type before passing it to Skip; keep behavior consistent with the shared pagination contract.",
+      "owner": "cook"
+    }
+  ],
+  "report_path": "plans/student-course-class-enrollment/quality/phase-03-student-self-enrollment-api-quality-report.json"
+}
