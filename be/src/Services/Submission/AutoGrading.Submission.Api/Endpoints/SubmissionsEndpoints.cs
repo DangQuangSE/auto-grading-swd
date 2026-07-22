@@ -19,7 +19,7 @@ public static class SubmissionsEndpoints
     {
         var group = app.MapGroup("/submissions").WithTags("Submissions");
 
-        group.MapGet("/", async (Guid? assignmentId, Guid? studentId, ClaimsPrincipal user, SubmissionDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (Guid? assignmentId, Guid? studentId, ClaimsPrincipal user, SubmissionDbContext db, ICatalogApiClient catalog, CancellationToken ct) =>
             {
                 var query = db.Submissions.AsNoTracking().AsQueryable();
                 if (assignmentId is not null)
@@ -32,6 +32,16 @@ public static class SubmissionsEndpoints
                     if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var currentStudentId)) return Results.Forbid();
                     query = query.Where(s => s.StudentId == currentStudentId);
                 }
+                else if (user.IsInRole("lecturer"))
+                {
+                    if (assignmentId is null) return Results.BadRequest(new { error = "assignmentId is required for lecturer submission listing." });
+                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, assignmentId.Value, catalog, ct);
+                    query = query.Where(s => allowedStudentIds.Contains(s.StudentId));
+                    if (studentId is not null)
+                    {
+                        query = query.Where(s => s.StudentId == studentId);
+                    }
+                }
                 else if (studentId is not null)
                 {
                     query = query.Where(s => s.StudentId == studentId);
@@ -41,7 +51,7 @@ public static class SubmissionsEndpoints
             })
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"));
 
-        group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, ICatalogApiClient catalog, CancellationToken ct) =>
             {
                 var submission = await db.Submissions.AsNoTracking()
                     .Include(s => s.Artifacts)
@@ -49,6 +59,11 @@ public static class SubmissionsEndpoints
 
                 if (submission is null) return Results.NotFound();
                 if (user.IsInRole("student") && submission.StudentId.ToString() != user.FindFirstValue(ClaimTypes.NameIdentifier)) return Results.Forbid();
+                if (user.IsInRole("lecturer"))
+                {
+                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, submission.AssignmentId, catalog, ct);
+                    if (!allowedStudentIds.Contains(submission.StudentId)) return Results.Forbid();
+                }
                 return Results.Ok(submission);
             })
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin", "service"));
@@ -57,7 +72,7 @@ public static class SubmissionsEndpoints
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"))
             .DisableAntiforgery();
 
-        group.MapPost("/{id:guid}/retry", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, IBackgroundJobClient backgroundJobs, CancellationToken ct) =>
+        group.MapPost("/{id:guid}/retry", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, IBackgroundJobClient backgroundJobs, ICatalogApiClient catalog, CancellationToken ct) =>
             {
                 var submission = await db.Submissions.FirstOrDefaultAsync(s => s.Id == id, ct);
                 if (submission is null)
@@ -65,6 +80,11 @@ public static class SubmissionsEndpoints
                     return Results.NotFound();
                 }
                 if (user.IsInRole("student") && submission.StudentId.ToString() != user.FindFirstValue(ClaimTypes.NameIdentifier)) return Results.Forbid();
+                if (user.IsInRole("lecturer"))
+                {
+                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, submission.AssignmentId, catalog, ct);
+                    if (!allowedStudentIds.Contains(submission.StudentId)) return Results.Forbid();
+                }
 
                 // Clean up previous artifacts
                 var oldArtifacts = await db.ExtractedArtifacts.Where(a => a.SubmissionId == id).ToListAsync(ct);
@@ -81,6 +101,18 @@ public static class SubmissionsEndpoints
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"));
 
         return app;
+    }
+
+    /// <summary>Student ids a lecturer may act on for the given assignment — the union of every
+    /// class they teach for that assignment's subject. Empty if the lecturer teaches no class
+    /// there, which correctly hides all submissions rather than falling back to "show everyone".</summary>
+    private static async Task<HashSet<Guid>> GetLecturerAllowedStudentIdsAsync(
+        ClaimsPrincipal user, Guid assignmentId, ICatalogApiClient catalog, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return [];
+        var assignment = await catalog.GetAssignmentAsync(assignmentId, cancellationToken);
+        if (assignment is null) return [];
+        return await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, cancellationToken);
     }
 
     private static async Task<IResult> UploadSubmissionAsync(

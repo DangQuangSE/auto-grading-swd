@@ -84,6 +84,16 @@ internal sealed class EnrollmentQueries(CatalogDbContext db)
         return new(items.Select(AdminEnrollmentSummary.From).ToList(), normalizedPage, normalizedPageSize, totalCount);
     }
 
+    public async Task<List<Guid>> ListStudentIdsForLecturerAsync(
+        Guid lecturerId,
+        Guid subjectId,
+        CancellationToken cancellationToken) =>
+        await db.StudentEnrollments.AsNoTracking()
+            .Where(item => item.SubjectId == subjectId && item.Class.LecturerId == lecturerId)
+            .Select(item => item.StudentId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
     public async Task<EnrollmentSummary?> GetStudentAsync(
         Guid studentId,
         Guid subjectId,

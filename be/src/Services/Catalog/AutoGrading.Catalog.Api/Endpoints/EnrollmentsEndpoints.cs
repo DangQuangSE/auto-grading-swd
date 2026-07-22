@@ -7,6 +7,7 @@ public static class EnrollmentsEndpoints
         var group = app.MapGroup("/enrollments").WithTags("Enrollments");
         group.MapStudentEnrollmentEndpoints();
         group.MapAdminEnrollmentEndpoints();
+        group.MapLecturerEnrollmentEndpoints();
         return app;
     }
 }
