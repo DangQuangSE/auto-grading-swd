@@ -256,7 +256,7 @@ services:
       context: .
       dockerfile: fe/user-web/Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:5500
+        VITE_API_BASE_URL: /api
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
         VITE_ADMIN_WEB_URL: http://localhost:5174
     ports:
@@ -270,7 +270,7 @@ services:
       context: .
       dockerfile: fe/admin-web/Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:5500
+        VITE_API_BASE_URL: /api
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
       - "5174:80"
