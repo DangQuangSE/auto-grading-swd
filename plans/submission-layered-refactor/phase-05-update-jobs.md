@@ -25,10 +25,12 @@
 - Do not introduce a separate `Service/ExtractionOrchestrator.cs` (see plan.md's "Deliberate deviation" note) — `ExtractionJob` remains the orchestrator, just decoupled from `SubmissionDbContext`.
 - Preserve the exact state machine transitions (`Extracting` → `Extracted`/`Failed`) and the exact event publishing sequence (`SubmissionStatusChanged("Extracting")`, then `ArtifactsExtracted`, then conditionally `SubmissionStatusChanged("ExtractionFailed", ...)`).
 
+Preflight: added `UpdateStateAsync`/`AddExtractedArtifactAsync` to `ISubmissionRepository` (reused `GetByIdAsync(includeArtifacts: true)` per the file's own suggestion, no duplicate fetch method). One deliberate, behavior-neutral difference from the original: the original staged all new `ExtractedArtifact` rows in the EF change tracker and committed them together with the final state transition in a single `SaveChangesAsync` call; `AddExtractedArtifactAsync` now saves each artifact immediately (one repository call = one save, matching this repository's existing per-method style). Net persisted state is identical for every code path — if `parser.ParseAsync` throws mid-loop, the exception happens *before* that iteration's `Add` call either way, so the set of artifacts that end up persisted doesn't change, only the number of round-trips does (functionally irrelevant to the API contract this refactor must preserve).
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-05-update-jobs-quality-report.json`, receipt issued
+- Testing: manual only. `dotnet build` passed 0/0; `Jobs/` grep-confirmed zero EF Core references. Hangfire dashboard / RabbitMQ end-to-end smoke test deferred to Phase 6 full regression per user's Phase 1 decision.
 
 ## Manual Verification
 

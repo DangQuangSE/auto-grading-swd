@@ -1,0 +1,24 @@
+{
+  "mode": "gate",
+  "target": "phase-05-update-jobs",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/SubmissionUploadedHandler.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/Submission.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/ExtractedArtifact.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Service/SubmissionService.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

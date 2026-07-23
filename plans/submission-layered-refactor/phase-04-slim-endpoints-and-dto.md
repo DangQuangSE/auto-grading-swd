@@ -24,10 +24,12 @@
 - Response JSON shape must not change — this is a behavior-preserving refactor, not an API redesign. If `SubmissionResponse` needs a property the entity doesn't expose 1:1, stop and flag it rather than silently changing the contract.
 - `Endpoints/SubmissionsEndpoints.cs` should contain no `catch` blocks around business logic other than the exception→`IResult` mapping — no loops, no EF Core, no direct storage/event-bus calls.
 
+Preflight: exception→`IResult` mapping and `TryBuildRequesterContext` (Phase 3's interim implementation) were already correct and complete, so this phase's endpoint changes are purely additive: introduce `Dto/SubmissionResponse.cs`/`Dto/ExtractedArtifactResponse.cs`/`Dto/UploadSubmissionForm.cs` (moved, unchanged) and wrap the three `Results.Ok`/`Results.Created` return sites with `SubmissionResponse.FromDomain(...)`. No inline error-string literals remained in the endpoint to swap for `SubmissionConstants` — Phase 3 already sourced every thrown exception's message from `SubmissionConstants`, so `ex.Message` in each `catch` already carries the constant text; grep-confirmed zero `error = "..."` literals in the endpoint file. `Submission.Artifacts` defaults to an EF-initialized empty list when a query doesn't `.Include()` it (list/upload responses), matching pre-refactor behavior exactly — `SubmissionResponse.FromDomain` doesn't special-case this, it just maps whatever `Artifacts` collection is already on the entity.
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-04-slim-endpoints-and-dto-quality-report.json`, receipt issued
+- Testing: manual only. `dotnet build` passed 0/0; DTO property mirroring verified against Domain entities. Live endpoint smoke test / byte-diff of `GET /submissions/{id}` deferred to Phase 6 full regression per user's Phase 1 decision.
 
 ## Manual Verification
 

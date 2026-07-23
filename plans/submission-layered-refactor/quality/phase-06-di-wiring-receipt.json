@@ -1,0 +1,22 @@
+{
+  "target": "phase-06-di-wiring",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/submission-layered-refactor/quality/phase-06-di-wiring-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Extensions/SubmissionServiceCollectionExtensions.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/IArtifactParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ICatalogApiClient.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionService.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/SubmissionUploadedHandler.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Service/SubmissionService.cs"
+  ],
+  "source_fingerprint": "sha256:f1fd732589fa7ec5f7d9b56111ebd028ba2c83e801dc60a9fa9242d156fe7ff7",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "open_blocking_findings": 0
+}

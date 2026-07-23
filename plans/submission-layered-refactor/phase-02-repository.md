@@ -28,10 +28,12 @@ Endpoints in this phase **do** start calling the repository instead of `Submissi
 - Repository methods must not accept or return HTTP types (`IResult`, `ClaimsPrincipal`) — only domain types and plain scalars/exceptions.
 - `SubmissionDbContext` must no longer be referenced from `Endpoints/` after this phase (grep for `SubmissionDbContext` in `Endpoints/SubmissionsEndpoints.cs` should return zero matches once this phase is done).
 
+Preflight: same repo conventions as Phase 1 (root namespace `AutoGrading.SubmissionSvc.Api.*`, primary-constructor DI, `Program.cs` top-level `AddScoped<TInterface, TImpl>`). No new conventions to discover — this phase's only structural addition is the `Repository/` folder holding both `SubmissionDbContext` (moved) and the new `SubmissionRepository` implementation, mirroring how `Clients/`/`Parsing/` already hold concrete implementations after Phase 1.
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-02-repository-quality-report.json`, receipt issued
+- Testing: manual only (no automated test project). `dotnet build` passed 0/0; `grep SubmissionDbContext Endpoints/` returns zero matches. Live endpoint smoke test deferred to Phase 6 full regression per user's Phase 1 decision.
 
 ## Manual Verification
 

@@ -3,11 +3,13 @@ using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Jobs;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
-using AutoGrading.SubmissionSvc.Api.Data;
 using AutoGrading.SubmissionSvc.Api.Clients;
 using AutoGrading.SubmissionSvc.Api.Endpoints;
+using AutoGrading.SubmissionSvc.Api.Extensions;
+using AutoGrading.SubmissionSvc.Api.Interfaces;
 using AutoGrading.SubmissionSvc.Api.Jobs;
 using AutoGrading.SubmissionSvc.Api.Parsing;
+using AutoGrading.SubmissionSvc.Api.Repository;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +36,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddScoped<DocxReportParser>();
 builder.Services.AddScoped<DrawioDiagramParser>();
 builder.Services.AddScoped<IArtifactParser, ArtifactParser>();
+builder.Services.AddSubmissionRepository().AddSubmissionApplication();
 builder.Services.AddScoped<ExtractionJob>();
 builder.Services.AddScoped<SubmissionUploadedHandler>();
 

@@ -1,14 +1,6 @@
-using AutoGrading.Common.Messaging;
-using AutoGrading.Common.Storage;
-using AutoGrading.Contracts.Events;
-using AutoGrading.SubmissionSvc.Api.Data;
-using AutoGrading.SubmissionSvc.Api.Domain;
-using AutoGrading.SubmissionSvc.Api.Jobs;
-using AutoGrading.SubmissionSvc.Api.Clients;
-using Hangfire;
+using AutoGrading.SubmissionSvc.Api.Dto;
+using AutoGrading.SubmissionSvc.Api.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Data;
 using System.Security.Claims;
 
 namespace AutoGrading.SubmissionSvc.Api.Endpoints;
@@ -19,52 +11,39 @@ public static class SubmissionsEndpoints
     {
         var group = app.MapGroup("/submissions").WithTags("Submissions");
 
-        group.MapGet("/", async (Guid? assignmentId, Guid? studentId, ClaimsPrincipal user, SubmissionDbContext db, ICatalogApiClient catalog, CancellationToken ct) =>
+        group.MapGet("/", async (Guid? assignmentId, Guid? studentId, ClaimsPrincipal user, ISubmissionService service, CancellationToken ct) =>
             {
-                var query = db.Submissions.AsNoTracking().AsQueryable();
-                if (assignmentId is not null)
-                {
-                    query = query.Where(s => s.AssignmentId == assignmentId);
-                }
+                if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
 
-                if (user.IsInRole("student"))
+                try
                 {
-                    if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var currentStudentId)) return Results.Forbid();
-                    query = query.Where(s => s.StudentId == currentStudentId);
+                    var submissions = await service.ListForRequesterAsync(new SubmissionListQuery(assignmentId, studentId), requester, ct);
+                    return Results.Ok(submissions.Select(SubmissionResponse.FromDomain));
                 }
-                else if (user.IsInRole("lecturer"))
+                catch (SubmissionValidationException ex)
                 {
-                    if (assignmentId is null) return Results.BadRequest(new { error = "assignmentId is required for lecturer submission listing." });
-                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, assignmentId.Value, catalog, ct);
-                    query = query.Where(s => allowedStudentIds.Contains(s.StudentId));
-                    if (studentId is not null)
-                    {
-                        query = query.Where(s => s.StudentId == studentId);
-                    }
+                    return Results.BadRequest(new { error = ex.Message });
                 }
-                else if (studentId is not null)
-                {
-                    query = query.Where(s => s.StudentId == studentId);
-                }
-
-                return Results.Ok(await query.ToListAsync(ct));
             })
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"));
 
-        group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, ICatalogApiClient catalog, CancellationToken ct) =>
+        group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, ISubmissionService service, CancellationToken ct) =>
             {
-                var submission = await db.Submissions.AsNoTracking()
-                    .Include(s => s.Artifacts)
-                    .FirstOrDefaultAsync(s => s.Id == id, ct);
+                if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
 
-                if (submission is null) return Results.NotFound();
-                if (user.IsInRole("student") && submission.StudentId.ToString() != user.FindFirstValue(ClaimTypes.NameIdentifier)) return Results.Forbid();
-                if (user.IsInRole("lecturer"))
+                try
                 {
-                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, submission.AssignmentId, catalog, ct);
-                    if (!allowedStudentIds.Contains(submission.StudentId)) return Results.Forbid();
+                    var submission = await service.GetForRequesterAsync(id, requester, ct);
+                    return Results.Ok(SubmissionResponse.FromDomain(submission));
                 }
-                return Results.Ok(submission);
+                catch (SubmissionNotFoundException)
+                {
+                    return Results.NotFound();
+                }
+                catch (SubmissionForbiddenException)
+                {
+                    return Results.Forbid();
+                }
             })
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin", "service"));
 
@@ -72,138 +51,93 @@ public static class SubmissionsEndpoints
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"))
             .DisableAntiforgery();
 
-        group.MapPost("/{id:guid}/retry", async (Guid id, ClaimsPrincipal user, SubmissionDbContext db, IBackgroundJobClient backgroundJobs, ICatalogApiClient catalog, CancellationToken ct) =>
+        group.MapPost("/{id:guid}/retry", async (Guid id, ClaimsPrincipal user, ISubmissionService service, CancellationToken ct) =>
             {
-                var submission = await db.Submissions.FirstOrDefaultAsync(s => s.Id == id, ct);
-                if (submission is null)
+                if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
+                try
+                {
+                    await service.RetryAsync(id, requester, ct);
+                    return Results.Accepted();
+                }
+                catch (SubmissionNotFoundException)
                 {
                     return Results.NotFound();
                 }
-                if (user.IsInRole("student") && submission.StudentId.ToString() != user.FindFirstValue(ClaimTypes.NameIdentifier)) return Results.Forbid();
-                if (user.IsInRole("lecturer"))
+                catch (SubmissionForbiddenException)
                 {
-                    var allowedStudentIds = await GetLecturerAllowedStudentIdsAsync(user, submission.AssignmentId, catalog, ct);
-                    if (!allowedStudentIds.Contains(submission.StudentId)) return Results.Forbid();
+                    return Results.Forbid();
                 }
-
-                // Clean up previous artifacts
-                var oldArtifacts = await db.ExtractedArtifacts.Where(a => a.SubmissionId == id).ToListAsync(ct);
-                db.ExtractedArtifacts.RemoveRange(oldArtifacts);
-
-                submission.State = SubmissionState.Uploaded;
-                submission.UpdatedAt = DateTimeOffset.UtcNow;
-                await db.SaveChangesAsync(ct);
-
-                backgroundJobs.Enqueue<ExtractionJob>(j => j.ExecuteAsync(id, CancellationToken.None));
-
-                return Results.Accepted();
             })
             .RequireAuthorization(policy => policy.RequireRole("student", "lecturer", "admin"));
 
         return app;
     }
 
-    /// <summary>Student ids a lecturer may act on for the given assignment — the union of every
-    /// class they teach for that assignment's subject. Empty if the lecturer teaches no class
-    /// there, which correctly hides all submissions rather than falling back to "show everyone".</summary>
-    private static async Task<HashSet<Guid>> GetLecturerAllowedStudentIdsAsync(
-        ClaimsPrincipal user, Guid assignmentId, ICatalogApiClient catalog, CancellationToken cancellationToken)
+    /// <summary>Builds the auth-framework-free <see cref="RequesterContext"/> for the service layer.
+    /// A student whose <c>NameIdentifier</c> claim is missing/not a Guid is rejected here with
+    /// <c>Forbid()</c> before the service is ever called — same behavior as the previous inline
+    /// <c>Guid.TryParse(...) → Forbid</c> checks, just relocated ahead of the service call.</summary>
+    private static bool TryBuildRequesterContext(ClaimsPrincipal user, out RequesterContext requester, out IResult? forbidResult)
     {
-        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return [];
-        var assignment = await catalog.GetAssignmentAsync(assignmentId, cancellationToken);
-        if (assignment is null) return [];
-        return await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, cancellationToken);
+        var isStudent = user.IsInRole("student");
+        var isLecturer = user.IsInRole("lecturer");
+        var isAdmin = user.IsInRole("admin");
+        Guid? userId = Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : null;
+
+        if (isStudent && userId is null)
+        {
+            requester = null!;
+            forbidResult = Results.Forbid();
+            return false;
+        }
+
+        requester = new RequesterContext(userId, isStudent, isLecturer, isAdmin);
+        forbidResult = null;
+        return true;
     }
 
     private static async Task<IResult> UploadSubmissionAsync(
         [FromForm] UploadSubmissionForm form,
         ClaimsPrincipal user,
-        SubmissionDbContext db,
-        ICatalogApiClient catalog,
-        IObjectStorage storage,
-        IEventBus eventBus,
+        ISubmissionService service,
         CancellationToken cancellationToken)
     {
-        var assignment = await catalog.GetAssignmentAsync(form.AssignmentId, cancellationToken);
-        if (assignment is null) return Results.NotFound(new { error = "Assignment not found." });
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
 
-        Guid studentId;
-        if (user.IsInRole("student"))
-        {
-            if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out studentId)) return Results.Forbid();
-        }
-        else if (form.StudentId is Guid requestedStudentId) studentId = requestedStudentId;
-        else return Results.BadRequest(new { error = "StudentId is required for lecturer/admin uploads." });
+        await using var reportStream = form.ReportFile.OpenReadStream();
+        await using var diagramStream = form.DiagramFile?.OpenReadStream();
 
-        Submission submission;
+        var command = new UploadSubmissionCommand(
+            form.AssignmentId,
+            form.StudentId,
+            reportStream,
+            form.ReportFile.FileName,
+            form.ReportFile.ContentType,
+            diagramStream,
+            form.DiagramFile?.FileName,
+            form.DiagramFile?.ContentType);
+
         try
         {
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            var used = await db.Submissions.CountAsync(s => s.AssignmentId == form.AssignmentId && s.StudentId == studentId, cancellationToken);
-            if (used >= assignment.MaxAttempts)
-                return Results.Conflict(new { error = "Submission attempt limit reached.", usedAttempts = used, maxAttempts = assignment.MaxAttempts });
-            var lastAttempt = await db.Submissions
-                .Where(s => s.AssignmentId == form.AssignmentId && s.StudentId == studentId)
-                .Select(s => (int?)s.AttemptNumber).MaxAsync(cancellationToken) ?? 0;
-            submission = new Submission { AssignmentId = form.AssignmentId, StudentId = studentId, AttemptNumber = lastAttempt + 1, State = SubmissionState.Uploading };
-            db.Submissions.Add(submission);
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            var submission = await service.UploadAsync(command, requester, cancellationToken);
+            return Results.Created($"/submissions/{submission.Id}", SubmissionResponse.FromDomain(submission));
         }
-        catch (DbUpdateException)
+        catch (SubmissionAssignmentNotFoundException ex)
         {
-            db.ChangeTracker.Clear();
-            var used = await db.Submissions.CountAsync(s => s.AssignmentId == form.AssignmentId && s.StudentId == studentId, cancellationToken);
-            return Results.Conflict(new { error = "Submission attempt conflict. Please refresh and try again.", usedAttempts = used, maxAttempts = assignment.MaxAttempts });
+            return Results.NotFound(new { error = ex.Message });
         }
-
-        var reportKey = $"submissions/{Guid.NewGuid()}-{form.ReportFile.FileName}";
-        string? diagramKey = null;
-        try
+        catch (SubmissionValidationException ex)
         {
-            await using (var stream = form.ReportFile.OpenReadStream())
-            {
-                await storage.UploadAsync(reportKey, stream, form.ReportFile.ContentType, cancellationToken);
-            }
-
-            if (form.DiagramFile is not null)
-            {
-                diagramKey = $"submissions/{Guid.NewGuid()}-{form.DiagramFile.FileName}";
-                await using var stream = form.DiagramFile.OpenReadStream();
-                await storage.UploadAsync(diagramKey, stream, form.DiagramFile.ContentType, cancellationToken);
-            }
-
-            submission.ReportObjectKey = reportKey;
-            submission.DiagramObjectKey = diagramKey;
-            submission.State = SubmissionState.Uploaded;
-            submission.UpdatedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            return Results.BadRequest(new { error = ex.Message });
         }
-        catch
+        catch (SubmissionAttemptLimitReachedException ex)
         {
-            db.Submissions.Remove(submission);
-            await db.SaveChangesAsync(CancellationToken.None);
-            try { await storage.DeleteAsync(reportKey, CancellationToken.None); } catch { }
-            if (diagramKey is not null) try { await storage.DeleteAsync(diagramKey, CancellationToken.None); } catch { }
-            throw;
+            return Results.Conflict(new { error = ex.Message, usedAttempts = ex.Used, maxAttempts = ex.Max });
         }
-
-        await eventBus.PublishAsync(
-            new SubmissionUploaded(submission.Id, submission.AssignmentId, submission.StudentId, reportKey, diagramKey),
-            cancellationToken);
-
-        await eventBus.PublishAsync(
-            new SubmissionStatusChanged(submission.Id, submission.StudentId, "Uploaded"),
-            cancellationToken);
-
-        return Results.Created($"/submissions/{submission.Id}", submission);
+        catch (SubmissionAttemptConflictException ex)
+        {
+            return Results.Conflict(new { error = ex.Message, usedAttempts = ex.Used, maxAttempts = ex.Max });
+        }
     }
-}
-
-public sealed class UploadSubmissionForm
-{
-    public Guid AssignmentId { get; set; }
-    public Guid? StudentId { get; set; }
-    public IFormFile ReportFile { get; set; } = null!;
-    public IFormFile? DiagramFile { get; set; }
 }

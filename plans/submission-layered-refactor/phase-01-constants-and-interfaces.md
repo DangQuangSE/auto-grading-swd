@@ -37,10 +37,12 @@ Create the new folders and contracts with zero behavior change. Nothing that cur
 - `ISubmissionRepository` methods are named after what the caller needs (`CreateWithAttemptCheckAsync`), not after raw CRUD — the Serializable transaction semantics from `SubmissionsEndpoints.cs:141-151` must be fully owned by whichever method implements attempt-checked creation, never split across a `Check()` + `Insert()` pair.
 - Do not touch `SubmissionsEndpoints.cs`, `Jobs/*`, or `Program.cs` in this phase — this is groundwork only.
 
+Preflight: Root namespace is `AutoGrading.SubmissionSvc.Api.*` (project folder is `AutoGrading.Submission.Api` but the namespace differs — preserve `SubmissionSvc`). Existing convention colocates interface + concrete implementation in one file (`ICatalogApiClient`+`CatalogApiClient`, `IArtifactParser`+`ArtifactParser`) — splitting them across `Interfaces/`↔`Clients/`/`Parsing/` per this plan is a deliberate, spec-driven deviation from that convention, not an oversight. DI registration style: top-level `Program.cs`, `builder.Services.AddScoped<TInterface, TImpl>()`/`AddHttpClient<TInterface, TImpl>()`. Primary-constructor DI (`class Foo(Dep dep) : IFoo`) is the established style — new classes should follow it. No custom exception types exist yet anywhere in this service; `SubmissionAttemptLimitReachedException`/`SubmissionAttemptConflictException` are new precedent, kept `sealed`, message sourced from `SubmissionConstants` (no duplicated string literals). Catalog/Grading services have no `Interfaces/`/`Service/`/`Repository/` folders yet — confirms Submission is genuinely the first pilot of this pattern in the repo.
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-01-constants-and-interfaces-quality-report.json`, receipt issued
+- Testing: manual verification only (no automated test project for Submission this round) — `dotnet build` passed 0 errors/0 warnings; endpoint smoke-check pending user confirmation
 
 ## Manual Verification
 

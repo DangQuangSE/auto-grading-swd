@@ -1,0 +1,22 @@
+{
+  "target": "phase-02-repository",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/submission-layered-refactor/quality/phase-02-repository-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Constant/SubmissionConstants.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/ExtractedArtifact.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/Submission.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/SubmissionState.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/SubmissionUploadedHandler.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionDbContext.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionRepository.cs"
+  ],
+  "source_fingerprint": "sha256:5ce0f81c83f8ffd205a8bd9f88ac40dc11e6ba5c6ed59961a5c4ebdcb5bf77d3",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "open_blocking_findings": 0
+}

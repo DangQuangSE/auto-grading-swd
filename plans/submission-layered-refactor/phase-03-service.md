@@ -34,10 +34,12 @@ Move the remaining logic out of `SubmissionsEndpoints.cs` — authorization deci
 - **`RequesterContext` validation happens in the endpoint, before calling the service**: if `ClaimTypes.NameIdentifier` is missing or not a valid `Guid` for a student role, the endpoint returns `Results.Forbid()` immediately and never constructs/calls into `Service` — this matches the existing `Guid.TryParse(...) → Forbid` checks already in the current endpoint (lines 32, 61, 82, 112, 133), just relocated to run before the service call instead of inline with the query.
 - **Retry idempotency is out of scope**: the current endpoint has no de-duplication for `POST /{id}/retry` (calling it twice enqueues `ExtractionJob` twice) — this refactor preserves that exact behavior rather than fixing it, since adding de-duplication would be a behavior change and the spec explicitly scopes this as behavior-preserving. Note it as a known pre-existing limitation, not something to silently fix mid-refactor.
 
+Preflight: interpreted "the endpoint layer maps exceptions to IResult in Phase 4" as describing final ownership/polish, not a literal deferral — Phase 3's own Manual Verification demands identical 404/403/409 behavior today, which requires a working exception→`IResult` mapping to exist now (`TryBuildRequesterContext` + per-exception `catch` blocks in `SubmissionsEndpoints.cs`). Phase 4 will replace this with the DTO-based final form; the mapping logic itself doesn't change, only its packaging. New exception types added beyond the two named in this phase's Steps: `SubmissionAssignmentNotFoundException` (kept distinct from `SubmissionNotFoundException` because the upload 404 has an error body while the GET/retry 404s are empty — conflating them would have changed the API contract). Minor DRY addition not explicitly in the spec: `EnsureCanActOnAsync` factors out the identical student/lecturer authorization check shared by `GetForRequesterAsync` and `RetryAsync` — same checks, same order, same exceptions as if written inline twice.
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-03-service-quality-report.json`, receipt issued
+- Testing: manual only. `dotnet build` passed 0/0; `Service/` grep-confirmed free of ASP.NET Core types. Live endpoint smoke test deferred to Phase 6 full regression per user's Phase 1 decision.
 
 ## Manual Verification
 

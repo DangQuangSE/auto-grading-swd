@@ -1,0 +1,27 @@
+{
+  "mode": "gate",
+  "target": "phase-01-constants-and-interfaces",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Constant/SubmissionConstants.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/IArtifactParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ICatalogApiClient.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/ArtifactParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/DocxReportParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/DrawioDiagramParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Clients/CatalogApiClient.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

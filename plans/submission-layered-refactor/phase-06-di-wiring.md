@@ -26,10 +26,12 @@ Register every new interface/implementation in `Program.cs` via clear extension 
 - No new package dependencies — everything here is existing ASP.NET Core DI conventions (`IServiceCollection` extension methods), consistent with how `AutoGrading.Common` already registers cross-cutting services.
 - `grep -rn "AutoGrading.SubmissionSvc.Api.Data"` across the whole project should return zero matches once this phase is done (confirms the `Data/` → `Repository/` move is fully clean, no stale namespace references).
 
+Preflight: `Data/` folder was already removed in Phase 2 (empty dir, `git mv`'d clean) — this phase's cleanup step is a no-op verification, not new work. Extension methods placed in a new `Extensions/SubmissionServiceCollectionExtensions.cs`, mirroring the style of `AutoGrading.Common.Extensions.ServiceCollectionExtensions` (static class, `this IServiceCollection services` extension methods returning `services` for chaining, one XML summary line per method). `Extensions/` is not one of spec's originally-listed folders but is explicitly called for by this phase's own Step 1, so it's plan-sanctioned scope, not creep.
+
 ## Quality and Testing State
 
-- Quality: not evaluated
-- Testing: not started
+- Quality: approved — `plans/submission-layered-refactor/quality/phase-06-di-wiring-quality-report.json`, receipt issued (report was regenerated to match the schema; the reviewer's original content/verdict was preserved verbatim)
+- Testing: manual only. `dotnet build` on the full solution passed 0 errors (2 pre-existing unrelated NU1504 warnings in Catalog.Api). Folder structure, dependency-direction, and no-stray-`Data`-namespace checks all passed. Full live end-to-end regression pass (upload→list→get→retry→extraction, Swagger diff) deferred to the user per the Phase 1 decision to skip live smoke tests throughout this session.
 
 ## Manual Verification — full spec Success Criteria re-check
 

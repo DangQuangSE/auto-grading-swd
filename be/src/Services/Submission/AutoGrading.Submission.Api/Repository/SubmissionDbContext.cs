@@ -1,7 +1,7 @@
 using AutoGrading.SubmissionSvc.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
-namespace AutoGrading.SubmissionSvc.Api.Data;
+namespace AutoGrading.SubmissionSvc.Api.Repository;
 
 public class SubmissionDbContext(DbContextOptions<SubmissionDbContext> options) : DbContext(options)
 {
