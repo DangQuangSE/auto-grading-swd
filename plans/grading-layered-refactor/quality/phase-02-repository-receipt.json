@@ -1,0 +1,24 @@
+{
+  "target": "phase-02-repository",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grading-layered-refactor/quality/phase-02-repository-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Endpoints/GradesEndpoints.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Handlers/RubricConfirmedHandler.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Interfaces/IGradingRepository.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/AiGradingJob.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/GradePublishedOutboxDispatcher.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Migrations/20260710080006_InitialCreate.Designer.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Migrations/20260712093008_AddLocalRubricCriteria.Designer.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Migrations/20260722164507_MakeGradePublicationIdempotent.Designer.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Migrations/20260722165034_AddGradePublishedOutbox.Designer.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Migrations/GradingDbContextModelSnapshot.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Program.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Repository/GradingDbContext.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Repository/GradingRepository.cs"
+  ],
+  "source_fingerprint": "sha256:b9304ad921323b08281c841257b55152adebc424a0196a5dd3569c6c81915707",
+  "reviewed_at": "2026-07-23T16:45:00Z",
+  "open_blocking_findings": 0
+}

@@ -1,6 +1,6 @@
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
-using AutoGrading.Grading.Api.Data;
+using AutoGrading.Grading.Api.Repository;
 using AutoGrading.Grading.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 

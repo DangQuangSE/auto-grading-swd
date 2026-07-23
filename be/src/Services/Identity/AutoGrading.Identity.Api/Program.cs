@@ -4,9 +4,10 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Enums;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Identity.Api.Auth;
-using AutoGrading.Identity.Api.Data;
+using AutoGrading.Identity.Api.Repository;
 using AutoGrading.Identity.Api.Domain;
 using AutoGrading.Identity.Api.Endpoints;
+using AutoGrading.Identity.Api.Extensions;
 using AutoGrading.Identity.Api.Handlers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("IdentityDb")));
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddIdentityRepository().AddIdentityApplication();
 builder.Services.AddJwtTokenGenerator(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddEventBus(builder.Configuration);

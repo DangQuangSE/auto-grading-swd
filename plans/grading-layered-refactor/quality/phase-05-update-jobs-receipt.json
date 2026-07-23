@@ -1,0 +1,17 @@
+{
+  "target": "phase-05-update-jobs",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grading-layered-refactor/quality/phase-05-update-jobs-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Interfaces/IGradingRepository.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/AiGradingJob.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/GradePublishedOutboxDispatcher.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Program.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Repository/GradingRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs"
+  ],
+  "source_fingerprint": "sha256:0d17da3fba18a9870ca16beb96ea4c3b8d118ba4a16da8f34fbc394931ec6aef",
+  "reviewed_at": "2026-07-23T15:10:00Z",
+  "open_blocking_findings": 0
+}

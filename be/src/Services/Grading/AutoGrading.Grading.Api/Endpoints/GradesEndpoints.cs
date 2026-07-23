@@ -1,12 +1,6 @@
 using System.Security.Claims;
-using AutoGrading.Common.Messaging;
-using AutoGrading.Contracts.Events;
-using AutoGrading.Grading.Api.Clients;
-using AutoGrading.Grading.Api.Data;
-using AutoGrading.Grading.Api.Domain;
-using AutoGrading.Grading.Api.Jobs;
-using Hangfire;
-using Microsoft.EntityFrameworkCore;
+using AutoGrading.Grading.Api.Dto;
+using AutoGrading.Grading.Api.Interfaces;
 
 namespace AutoGrading.Grading.Api.Endpoints;
 
@@ -42,142 +36,89 @@ public static class GradesEndpoints
         return app;
     }
 
-    private static async Task<IResult> GetRunsAsync(
-        Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    /// <summary>Builds the auth-framework-free <see cref="RequesterContext"/> for the service layer.
+    /// A student whose <c>NameIdentifier</c> claim is missing/not a Guid is rejected here with
+    /// <c>Forbid()</c> before the service is ever called.</summary>
+    private static bool TryBuildRequesterContext(ClaimsPrincipal user, out RequesterContext requester, out IResult? forbidResult)
     {
-        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
-            return Results.Forbid();
+        var isStudent = user.IsInRole("student");
+        var isLecturer = user.IsInRole("lecturer");
+        var isAdmin = user.IsInRole("admin");
+        Guid? userId = Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : null;
 
-        return Results.Ok(await db.AiGradingRuns.AsNoTracking().Include(r => r.Scores)
-            .Where(r => r.SubmissionId == submissionId).ToListAsync(ct));
-    }
-
-    private static async Task<IResult> GetPublishedResultAsync(
-        Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
-    {
-        if (!await CanReadSubmissionAsync(submissionId, user, submissions, catalog, ct))
-            return Results.Forbid();
-
-        var publication = await db.GradePublications.AsNoTracking()
-            .Where(p => p.SubmissionId == submissionId)
-            .OrderByDescending(p => p.PublishedAt)
-            .FirstOrDefaultAsync(ct);
-        if (publication is null)
+        if (isStudent && userId is null)
         {
-            // Never leak raw AI scores to students before a lecturer publishes.
-            // Tell the client whether grading is done so it can show an appropriate banner.
-            var gradingDone = await db.AiGradingRuns.AnyAsync(
-                r => r.SubmissionId == submissionId && r.Status == AiGradingRunStatus.Completed, ct);
-            return Results.NotFound(new { gradingDone });
+            requester = null!;
+            forbidResult = Results.Forbid();
+            return false;
         }
 
-        var finalGrade = await db.FinalGrades.AsNoTracking()
-            .FirstOrDefaultAsync(f => f.Id == publication.FinalGradeId, ct);
-        if (finalGrade is null) return Results.NotFound();
-
-        AiGradingRun? run = null;
-        if (finalGrade.GradingRunId is Guid runId)
-            run = await db.AiGradingRuns.AsNoTracking().Include(r => r.Scores)
-                .FirstOrDefaultAsync(r => r.Id == runId && r.SubmissionId == submissionId, ct);
-
-        return Results.Ok(new PublishedGradeResult(finalGrade, publication.PublishedAt, run));
+        requester = new RequesterContext(userId, isStudent, isLecturer, isAdmin);
+        forbidResult = null;
+        return true;
     }
 
-    private static async Task<IResult> GetFinalGradeAsync(
-        Guid submissionId, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    private static async Task<IResult> GetRunsAsync(Guid submissionId, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        if (!await CanReadSubmissionAsync(submissionId, user, submissions, catalog, ct))
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
+        try
+        {
+            var runs = await service.GetRunsForRequesterAsync(submissionId, requester, ct);
+            return Results.Ok(runs.Select(AiGradingRunResponse.FromDomain));
+        }
+        catch (GradingForbiddenException)
+        {
             return Results.Forbid();
-
-        var finalGrade = await db.FinalGrades.AsNoTracking()
-            .Join(db.GradePublications.AsNoTracking(), f => f.Id, p => p.FinalGradeId, (f, p) => new { Grade = f, p.PublishedAt })
-            .Where(x => x.Grade.SubmissionId == submissionId)
-            .OrderByDescending(x => x.PublishedAt)
-            .Select(x => x.Grade)
-            .FirstOrDefaultAsync(ct);
-        return finalGrade is null ? Results.NotFound() : Results.Ok(finalGrade);
+        }
     }
 
-    private static async Task<bool> CanReadSubmissionAsync(
-        Guid submissionId, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    private static async Task<IResult> GetPublishedResultAsync(Guid submissionId, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        if (user.IsInRole("admin")) return true;
-        if (user.IsInRole("lecturer")) return await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct);
-        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return false;
-        var submission = await submissions.GetSubmissionAsync(submissionId, ct);
-        return submission?.StudentId == userId;
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
+        try
+        {
+            var result = await service.GetPublishedResultForRequesterAsync(submissionId, requester, ct);
+            if (result.Grade is null)
+            {
+                return result.GradingDone is bool done ? Results.NotFound(new { gradingDone = done }) : Results.NotFound();
+            }
+
+            var run = result.Run is null ? null : AiGradingRunResponse.FromDomain(result.Run);
+            return Results.Ok(new PublishedGradeResult(FinalGradeDetailResponse.FromDomain(result.Grade), result.PublishedAt!.Value, run));
+        }
+        catch (GradingForbiddenException)
+        {
+            return Results.Forbid();
+        }
     }
 
-    /// <summary>True if the calling lecturer teaches a class the submission's student is
-    /// enrolled in, for that submission's assignment's subject.</summary>
-    private static async Task<bool> IsLecturerAllowedAsync(
-        Guid submissionId, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+    private static async Task<IResult> GetFinalGradeAsync(Guid submissionId, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return false;
-        var submission = await submissions.GetSubmissionAsync(submissionId, ct);
-        if (submission is null) return false;
-        var assignment = await catalog.GetAssignmentAsync(submission.AssignmentId, ct);
-        if (assignment is null) return false;
-        var allowedStudentIds = await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, ct);
-        return allowedStudentIds.Contains(submission.StudentId);
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
+        try
+        {
+            var finalGrade = await service.GetFinalGradeForRequesterAsync(submissionId, requester, ct);
+            return finalGrade is null ? Results.NotFound() : Results.Ok(FinalGradeDetailResponse.FromDomain(finalGrade));
+        }
+        catch (GradingForbiddenException)
+        {
+            return Results.Forbid();
+        }
     }
 
     private static async Task<IResult> GetFinalGradesBatchAsync(
-        string[]? submissionIds, ClaimsPrincipal user, GradingDbContext db,
-        ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+        string[]? submissionIds, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
         var ids = ParseIds(submissionIds);
         if (ids is null) return Results.Ok(Array.Empty<FinalGradeResponse>());
 
-        if (user.IsInRole("lecturer"))
-        {
-            ids = await FilterAllowedForLecturerAsync(ids, user, submissions, catalog, ct);
-            if (ids.Count == 0) return Results.Ok(Array.Empty<FinalGradeResponse>());
-        }
-
-        var grades = await db.FinalGrades.AsNoTracking()
-            .Join(db.GradePublications.AsNoTracking(), f => f.Id, p => p.FinalGradeId, (f, p) => new { Grade = f, p.PublishedAt })
-            .Where(x => ids.Contains(x.Grade.SubmissionId))
-            .OrderByDescending(x => x.PublishedAt).ToListAsync(ct);
-        return Results.Ok(grades.GroupBy(x => x.Grade.SubmissionId).Select(g => g.First().Grade)
-            .Select(f => new FinalGradeResponse(f.SubmissionId, f.Id, f.FinalScore, f.CreatedAt)));
-    }
-
-    /// <summary>Narrows a batch of submission ids down to the ones the calling lecturer may see,
-    /// caching the allowed-student-id lookup per assignment since a batch commonly spans one
-    /// assignment's worth of submissions.</summary>
-    private static async Task<HashSet<Guid>> FilterAllowedForLecturerAsync(
-        HashSet<Guid> submissionIds, ClaimsPrincipal user, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
-    {
-        if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var lecturerId)) return [];
-
-        var allowed = new HashSet<Guid>();
-        var allowedStudentIdsByAssignment = new Dictionary<Guid, HashSet<Guid>>();
-
-        foreach (var submissionId in submissionIds)
-        {
-            var submission = await submissions.GetSubmissionAsync(submissionId, ct);
-            if (submission is null) continue;
-
-            if (!allowedStudentIdsByAssignment.TryGetValue(submission.AssignmentId, out var allowedStudentIds))
-            {
-                var assignment = await catalog.GetAssignmentAsync(submission.AssignmentId, ct);
-                allowedStudentIds = assignment is null
-                    ? []
-                    : await catalog.GetLecturerStudentIdsAsync(lecturerId, assignment.SubjectId, ct);
-                allowedStudentIdsByAssignment[submission.AssignmentId] = allowedStudentIds;
-            }
-
-            if (allowedStudentIds.Contains(submission.StudentId))
-            {
-                allowed.Add(submissionId);
-            }
-        }
-
-        return allowed;
+        var grades = await service.GetFinalGradesBatchForRequesterAsync(ids, requester, ct);
+        return Results.Ok(grades.Select(FinalGradeResponse.FromData));
     }
 
     private static HashSet<Guid>? ParseIds(string[]? ids)
@@ -189,98 +130,53 @@ public static class GradesEndpoints
     }
 
     private static async Task<IResult> RegradeAsync(
-        Guid submissionId, RegradeRequest request, ClaimsPrincipal user,
-        ISubmissionApiClient submissions, ICatalogApiClient catalog, IBackgroundJobClient jobs, CancellationToken ct)
+        Guid submissionId, RegradeRequest request, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
-            return Results.Forbid();
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
 
-        jobs.Enqueue<AiGradingJob>(job => job.ExecuteAsync(submissionId, request.AssignmentDescription, CancellationToken.None));
-        return Results.Accepted($"/grades/{submissionId}/runs");
+        try
+        {
+            await service.RegradeAsync(submissionId, request.AssignmentDescription, requester, ct);
+            return Results.Accepted($"/grades/{submissionId}/runs");
+        }
+        catch (GradingForbiddenException)
+        {
+            return Results.Forbid();
+        }
     }
 
     private static async Task<IResult> PublishGradeAsync(
-        Guid submissionId, PublishGradeRequest request, ClaimsPrincipal user,
-        GradingDbContext db, ISubmissionApiClient submissions, ICatalogApiClient catalog, CancellationToken ct)
+        Guid submissionId, PublishGradeRequest request, ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        if (user.IsInRole("lecturer") && !await IsLecturerAllowedAsync(submissionId, user, submissions, catalog, ct))
-            return Results.Forbid();
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
 
-        var existing = await FindPublishedGradeAsync(submissionId, db, ct);
-        if (existing is not null) return Results.Ok(existing);
-
-        if (request.GradingRunId is Guid runId && !await db.AiGradingRuns.AnyAsync(
-                r => r.Id == runId && r.SubmissionId == submissionId && r.Status == AiGradingRunStatus.Completed, ct))
-            return Results.BadRequest(new { error = "The grading run is not a completed run for this submission." });
-
-        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var grade = await PublishOneAsync(submissionId, request.GradingRunId, request.FinalScore, request.Notes, userId, db, ct);
-        return Results.Created($"/grades/{submissionId}/final", grade);
-    }
-
-    private static async Task<IResult> PublishAllAsync(
-        ClaimsPrincipal user, GradingDbContext db, CancellationToken ct)
-    {
-        const int batchSize = 100;
-        var skipped = await db.GradePublications.AsNoTracking().CountAsync(ct);
-        var published = 0;
-        var failed = 0;
-        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        while (true)
+        try
         {
-            var runIds = await db.AiGradingRuns.AsNoTracking()
-                .Where(r => r.Status == AiGradingRunStatus.Completed && r.Scores.Any() &&
-                            !db.GradePublications.Any(p => p.SubmissionId == r.SubmissionId))
-                .GroupBy(r => r.SubmissionId)
-                .Select(g => g.OrderByDescending(r => r.CompletedAt).ThenByDescending(r => r.CreatedAt).Select(r => r.Id).First())
-                .Take(batchSize).ToListAsync(ct);
-            if (runIds.Count == 0) break;
-
-            var runs = await db.AiGradingRuns.AsNoTracking().Include(r => r.Scores)
-                .Where(r => runIds.Contains(r.Id)).ToListAsync(ct);
-            foreach (var run in runs)
-            {
-                try
-                {
-                    await PublishOneAsync(run.SubmissionId, run.Id, run.Scores.Sum(s => s.SuggestedScore), null, userId, db, ct);
-                    published++;
-                }
-                catch (Exception) when (!ct.IsCancellationRequested)
-                {
-                    failed++;
-                    db.ChangeTracker.Clear();
-                }
-            }
-            if (runs.Count < batchSize || failed > 0) break;
+            var grade = await service.PublishGradeAsync(submissionId, request.GradingRunId, request.FinalScore, request.Notes, requester, ct);
+            return Results.Created($"/grades/{submissionId}/final", FinalGradeDetailResponse.FromDomain(grade));
         }
-
-        return Results.Ok(new PublishAllResponse(published, skipped, failed));
+        catch (GradingForbiddenException)
+        {
+            return Results.Forbid();
+        }
+        catch (InvalidGradingRunException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 
-    private static async Task<FinalGrade?> FindPublishedGradeAsync(Guid submissionId, GradingDbContext db, CancellationToken ct) =>
-        await db.FinalGrades.AsNoTracking()
-            .Join(db.GradePublications.AsNoTracking(), f => f.Id, p => p.FinalGradeId, (f, p) => new { f, p.PublishedAt })
-            .Where(x => x.f.SubmissionId == submissionId).OrderByDescending(x => x.PublishedAt).Select(x => x.f)
-            .FirstOrDefaultAsync(ct);
-
-    private static async Task<FinalGrade> PublishOneAsync(
-        Guid submissionId, Guid? runId, decimal score, string? notes, Guid userId,
-        GradingDbContext db, CancellationToken ct)
+    private static async Task<IResult> PublishAllAsync(ClaimsPrincipal user, IGradingService service, CancellationToken ct)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var grade = new FinalGrade { SubmissionId = submissionId, GradingRunId = runId, FinalScore = score, Notes = notes, CreatedByUserId = userId };
-        db.FinalGrades.Add(grade);
-        db.GradePublications.Add(new GradePublication { FinalGradeId = grade.Id, SubmissionId = submissionId, PublishedByUserId = userId });
-        db.GradePublishedOutbox.Add(new GradePublishedOutbox { SubmissionId = submissionId, FinalGradeId = grade.Id, FinalScore = grade.FinalScore, PublishedByUserId = userId });
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        return grade;
+        if (!TryBuildRequesterContext(user, out var requester, out var forbid)) return forbid!;
+
+        try
+        {
+            var result = await service.PublishAllAsync(requester, ct);
+            return Results.Ok(new PublishAllResponse(result.Published, result.Skipped, result.Failed));
+        }
+        catch (GradingForbiddenException)
+        {
+            return Results.Forbid();
+        }
     }
 }
-
-public sealed record RegradeRequest(string? AssignmentDescription);
-public sealed record PublishGradeRequest(Guid? GradingRunId, decimal FinalScore, string? Notes);
-public sealed record FinalGradeResponse(Guid SubmissionId, Guid FinalGradeId, decimal FinalScore, DateTimeOffset CreatedAt);
-public sealed record PublishedGradeResult(FinalGrade FinalGrade, DateTimeOffset PublishedAt, AiGradingRun? GradingRun);
-public sealed record PublishAllResponse(int Published, int Skipped, int Failed);

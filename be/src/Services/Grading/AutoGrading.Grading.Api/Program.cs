@@ -5,9 +5,11 @@ using AutoGrading.Common.Messaging;
 using AutoGrading.Common.OpenCode;
 using AutoGrading.Contracts.Events;
 using AutoGrading.Grading.Api.Clients;
-using AutoGrading.Grading.Api.Data;
+using AutoGrading.Grading.Api.Repository;
 using AutoGrading.Grading.Api.Endpoints;
+using AutoGrading.Grading.Api.Extensions;
 using AutoGrading.Grading.Api.Handlers;
+using AutoGrading.Grading.Api.Interfaces;
 using AutoGrading.Grading.Api.Jobs;
 using AutoGrading.Grading.Api.OpenCode;
 using Hangfire;
@@ -44,6 +46,7 @@ builder.Services.AddHttpClient<ISubmissionApiClient, SubmissionApiClient>(client
         client.BaseAddress = new Uri(servicesOptions.SubmissionApiBaseUrl))
     .AddHttpMessageHandler<ServiceAuthHandler>();
 
+builder.Services.AddGradingRepository().AddGradingApplication();
 builder.Services.AddScoped<AiGradingJob>();
 builder.Services.AddScoped<ArtifactsExtractedHandler>();
 builder.Services.AddScoped<RubricConfirmedHandler>();

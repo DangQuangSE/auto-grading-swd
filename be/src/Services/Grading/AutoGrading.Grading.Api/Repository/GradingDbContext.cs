@@ -1,7 +1,7 @@
 using AutoGrading.Grading.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
-namespace AutoGrading.Grading.Api.Data;
+namespace AutoGrading.Grading.Api.Repository;
 
 public class GradingDbContext(DbContextOptions<GradingDbContext> options) : DbContext(options)
 {

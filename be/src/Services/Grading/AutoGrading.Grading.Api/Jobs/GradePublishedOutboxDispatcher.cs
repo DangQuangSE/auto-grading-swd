@@ -1,7 +1,6 @@
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
-using AutoGrading.Grading.Api.Data;
-using Microsoft.EntityFrameworkCore;
+using AutoGrading.Grading.Api.Interfaces;
 
 namespace AutoGrading.Grading.Api.Jobs;
 
@@ -14,15 +13,13 @@ public sealed class GradePublishedOutboxDispatcher(IServiceScopeFactory scopeFac
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<GradingDbContext>();
+                var repository = scope.ServiceProvider.GetRequiredService<IGradingRepository>();
                 var bus = scope.ServiceProvider.GetRequiredService<IEventBus>();
-                var messages = await db.GradePublishedOutbox.Where(x => x.DispatchedAt == null)
-                    .OrderBy(x => x.CreatedAt).Take(100).ToListAsync(stoppingToken);
+                var messages = await repository.GetPendingOutboxMessagesAsync(100, stoppingToken);
                 foreach (var message in messages)
                 {
                     await bus.PublishAsync(new GradePublished(message.SubmissionId, message.FinalGradeId, message.FinalScore, message.PublishedByUserId) { EventId = message.Id }, stoppingToken);
-                    message.DispatchedAt = DateTimeOffset.UtcNow;
-                    await db.SaveChangesAsync(stoppingToken);
+                    await repository.MarkOutboxDispatchedAsync(message.Id, stoppingToken);
                 }
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)

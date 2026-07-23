@@ -1,7 +1,7 @@
 using AutoGrading.Identity.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
-namespace AutoGrading.Identity.Api.Data;
+namespace AutoGrading.Identity.Api.Repository;
 
 public class IdentityDbContext : DbContext
 {

@@ -1,0 +1,24 @@
+{
+  "target": "phase-06-di-wiring",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/identity-layered-refactor/quality/phase-06-di-wiring-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/AuthEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Extensions/IdentityServiceCollectionExtensions.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/ClassLecturerAssignedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/GradePublishedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/SubmissionUploadedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IAuthService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IUserRepository.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IUserService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Repository/UserRepository.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Service/AuthService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Service/UserService.cs"
+  ],
+  "source_fingerprint": "sha256:4abd033977f2e666915021b90c7e4897a64731af5a1c790bc51f83e3f8b538f8",
+  "reviewed_at": "2026-07-23T19:12:00Z",
+  "open_blocking_findings": 0
+}

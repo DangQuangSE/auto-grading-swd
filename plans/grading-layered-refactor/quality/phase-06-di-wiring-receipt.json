@@ -1,0 +1,22 @@
+{
+  "target": "phase-06-di-wiring",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/grading-layered-refactor/quality/phase-06-di-wiring-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Endpoints/GradesEndpoints.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Extensions/GradingServiceCollectionExtensions.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Handlers/RubricConfirmedHandler.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Interfaces/IGradingRepository.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Interfaces/IGradingService.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/AiGradingJob.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/ArtifactsExtractedHandler.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Jobs/GradePublishedOutboxDispatcher.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Program.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Repository/GradingRepository.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Service/GradingService.cs"
+  ],
+  "source_fingerprint": "sha256:ac7880f15eea5a21f3fcffbbdab8835b2e6e6acf96cd7ee466fe0613839af15e",
+  "reviewed_at": "2026-07-23T15:45:00Z",
+  "open_blocking_findings": 0
+}

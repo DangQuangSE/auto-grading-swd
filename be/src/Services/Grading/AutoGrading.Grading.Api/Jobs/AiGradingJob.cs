@@ -1,11 +1,9 @@
 using System.Text.Json;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
-using AutoGrading.Grading.Api.Clients;
-using AutoGrading.Grading.Api.Data;
 using AutoGrading.Grading.Api.Domain;
+using AutoGrading.Grading.Api.Interfaces;
 using AutoGrading.Common.OpenCode;
-using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Grading.Api.Jobs;
 
@@ -15,7 +13,7 @@ namespace AutoGrading.Grading.Api.Jobs;
 /// report/diagram content from Submission before calling the LLM.
 /// </summary>
 public sealed class AiGradingJob(
-    GradingDbContext db,
+    IGradingRepository repository,
     ICatalogApiClient catalogApiClient,
     ISubmissionApiClient submissionApiClient,
     IOpenCodeClient openCodeClient,
@@ -31,8 +29,7 @@ public sealed class AiGradingJob(
             Status = AiGradingRunStatus.Running,
         };
 
-        db.AiGradingRuns.Add(run);
-        await db.SaveChangesAsync(cancellationToken);
+        await repository.AddRunAsync(run, cancellationToken);
 
         try
         {
@@ -69,25 +66,21 @@ public sealed class AiGradingJob(
                 images: images,
                 cancellationToken: cancellationToken);
 
-            foreach (var result in results)
+            var scores = results.Select(result => new AiCriterionScore
             {
-                db.AiCriterionScores.Add(new AiCriterionScore
-                {
-                    GradingRunId = run.Id,
-                    SubmissionId = submissionId,
-                    RubricCriterionId = result.RubricCriterionId,
-                    MaxScore = result.MaxScore,
-                    SuggestedScore = result.SuggestedScore,
-                    Deductions = result.Deductions,
-                    Evidence = result.Evidence,
-                    Comment = result.Comment,
-                    Confidence = result.Confidence,
-                });
-            }
+                GradingRunId = run.Id,
+                SubmissionId = submissionId,
+                RubricCriterionId = result.RubricCriterionId,
+                MaxScore = result.MaxScore,
+                SuggestedScore = result.SuggestedScore,
+                Deductions = result.Deductions,
+                Evidence = result.Evidence,
+                Comment = result.Comment,
+                Confidence = result.Confidence,
+            }).ToList();
+            await repository.AddCriterionScoresAsync(run.Id, scores, cancellationToken);
 
-            run.Status = AiGradingRunStatus.Completed;
-            run.CompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            await repository.UpdateRunStatusAsync(run.Id, AiGradingRunStatus.Completed, DateTimeOffset.UtcNow, cancellationToken);
 
             var totalScore = results.Sum(r => r.SuggestedScore);
             await eventBus.PublishAsync(
@@ -100,17 +93,15 @@ public sealed class AiGradingJob(
         }
         catch (Exception ex)
         {
-            run.Status = AiGradingRunStatus.Failed;
-            run.CompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            await repository.UpdateRunStatusAsync(run.Id, AiGradingRunStatus.Failed, DateTimeOffset.UtcNow, cancellationToken);
 
-            // We may not have StudentId if it failed before fetching submission. 
+            // We may not have StudentId if it failed before fetching submission.
             // Attempt to get it if possible, otherwise we can't notify the user effectively.
             // Since this is a background job, we'll just try to fetch it for the event if we don't have it.
-            try 
+            try
             {
                 var submission = await submissionApiClient.GetSubmissionAsync(submissionId, cancellationToken);
-                if (submission != null) 
+                if (submission != null)
                 {
                     await eventBus.PublishAsync(
                         new SubmissionStatusChanged(submission.Id, submission.StudentId, "AiGradingFailed", ex.Message),
