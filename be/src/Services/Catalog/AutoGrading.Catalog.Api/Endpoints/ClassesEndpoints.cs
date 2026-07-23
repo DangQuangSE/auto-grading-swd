@@ -1,10 +1,8 @@
 using System.Security.Claims;
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
-using AutoGrading.Common.Messaging;
-using AutoGrading.Contracts.Events;
+using AutoGrading.Catalog.Api.Dto;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Contracts.Pagination;
-using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Catalog.Api.Endpoints;
 
@@ -31,49 +29,27 @@ public static class ClassesEndpoints
 
     private static async Task<IResult> ListLegacyClassesAsync(
         ClaimsPrincipal caller,
-        CatalogDbContext db,
+        IClassService service,
         CancellationToken cancellationToken)
     {
         var includeLecturerId = caller.IsInRole("admin") || caller.IsInRole("lecturer");
-        var classes = await db.Classes.AsNoTracking()
-            .OrderBy(item => item.Name)
-            .Select(item => new LegacyClassSummary(
-                item.Id,
-                item.Name,
-                includeLecturerId ? item.LecturerId : null))
-            .ToListAsync(cancellationToken);
+        var classes = await service.ListLegacyAsync(cancellationToken);
 
-        return Results.Ok(classes);
+        return Results.Ok(classes
+            .Select(item => new LegacyClassSummary(item.Id, item.Name, includeLecturerId ? item.LecturerId : null))
+            .ToList());
     }
 
     private static async Task<IResult> ListAdminClassesAsync(
         int? page,
         int? pageSize,
         Guid? subjectId,
-        CatalogDbContext db,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-        var query = db.Classes.AsNoTracking();
-        if (subjectId.HasValue)
-        {
-            query = query.Where(item => item.SubjectId == subjectId.Value);
-        }
+        var result = await service.ListAdminAsync(subjectId, page, pageSize, cancellationToken);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderBy(item => item.Name)
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .Select(item => new ClassSummary(
-                item.Id,
-                item.Name,
-                item.LecturerId,
-                item.SubjectId,
-                item.Subject == null ? null : item.Subject.Code))
-            .ToListAsync(cancellationToken);
-
-        return Results.Ok(new PagedResult<ClassSummary>(items, normalizedPage, normalizedPageSize, totalCount));
+        return Results.Ok(result.MapItems(ClassSummary.FromDomain));
     }
 
     private static async Task<IResult> ListSubjectClassesAsync(
@@ -81,212 +57,80 @@ public static class ClassesEndpoints
         int? page,
         int? pageSize,
         ClaimsPrincipal caller,
-        CatalogDbContext db,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        var subject = await db.Subjects.AsNoTracking()
-            .Where(item => item.Id == subjectId)
-            .Select(item => new { item.RegistrationStatus })
-            .FirstOrDefaultAsync(cancellationToken);
+        try
+        {
+            var result = await service.ListForSubjectAsync(subjectId, page, pageSize, caller.IsInRole("student"), cancellationToken);
 
-        if (subject is null || (caller.IsInRole("student") && subject.RegistrationStatus != RegistrationStatus.Open))
+            return Results.Ok(result.MapItems(item => new RegistrationClassOption(item.Id, item.Name, subjectId)));
+        }
+        catch (CatalogNotFoundException)
         {
             return Results.NotFound();
         }
-
-        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-        var query = db.Classes.AsNoTracking().Where(item => item.SubjectId == subjectId);
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderBy(item => item.Name)
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .Select(item => new RegistrationClassOption(item.Id, item.Name, subjectId))
-            .ToListAsync(cancellationToken);
-
-        return Results.Ok(new PagedResult<RegistrationClassOption>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount));
     }
 
     private static Task<IResult> CreateLegacyClassAsync(
         CreateLegacyClassRequest request,
-        CatalogDbContext db,
-        IEventBus eventBus,
+        IClassService service,
         CancellationToken cancellationToken) =>
-        CreateClassCoreAsync(request.Name, request.LecturerId, null, db, eventBus, cancellationToken);
+        CreateClassCoreAsync(() => service.CreateLegacyAsync(request.Name, request.LecturerId, cancellationToken));
 
     private static Task<IResult> CreateSubjectScopedClassAsync(
         CreateSubjectScopedClassRequest request,
-        CatalogDbContext db,
-        IEventBus eventBus,
+        IClassService service,
         CancellationToken cancellationToken) =>
-        CreateClassCoreAsync(request.Name, request.LecturerId, request.SubjectId, db, eventBus, cancellationToken);
+        CreateClassCoreAsync(() => service.CreateSubjectScopedAsync(request.Name, request.LecturerId, request.SubjectId, cancellationToken));
 
-    private static async Task<IResult> CreateClassCoreAsync(
-        string? name,
-        Guid lecturerId,
-        Guid? subjectId,
-        CatalogDbContext db,
-        IEventBus eventBus,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> CreateClassCoreAsync(Func<Task<Class>> createAsync)
     {
-        var normalizedName = NormalizeName(name);
-        var validationError = ValidateClassInput(normalizedName, lecturerId, subjectId);
-        if (validationError is not null)
+        try
         {
-            return validationError;
+            var @class = await createAsync();
+            return Results.Created($"/classes/{@class.Id}", ClassSummary.FromDomain(@class));
         }
-
-        if (subjectId.HasValue && !await db.Subjects.AnyAsync(subject => subject.Id == subjectId, cancellationToken))
+        catch (CatalogValidationException ex)
         {
-            return Results.BadRequest(new { code = "invalid_subject", message = "Subject does not exist." });
+            return Results.BadRequest(new { code = ex.Code, message = ex.Message });
         }
-
-        var @class = new Class
+        catch (CatalogConflictException ex)
         {
-            Name = name!.Trim(),
-            NormalizedName = normalizedName!,
-            LecturerId = lecturerId,
-            SubjectId = subjectId
-        };
-        if (subjectId.HasValue)
-        {
-            @class.EnrollmentSubjectId = subjectId.Value;
+            return Results.Conflict(new { code = ex.Code, message = ex.Message });
         }
-        db.Classes.Add(@class);
-
-        var publishError = await SaveAndPublishAsync(db, eventBus, @class, cancellationToken);
-        return publishError ?? Results.Created($"/classes/{@class.Id}", ClassSummary.From(@class));
+        catch (ClassEventPublishException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
     }
 
     private static async Task<IResult> UpdateClassAsync(
         Guid id,
         UpdateClassRequest request,
-        CatalogDbContext db,
-        IEventBus eventBus,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        if (!request.LecturerId.HasValue && !request.SubjectId.HasValue)
+        try
         {
-            return Results.BadRequest(new { code = "empty_update", message = "No class change was provided." });
+            var @class = await service.UpdateAsync(id, request.LecturerId, request.SubjectId, cancellationToken);
+            return Results.Ok(ClassSummary.FromDomain(@class));
         }
-
-        var @class = await db.Classes.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        if (@class is null)
+        catch (CatalogNotFoundException)
         {
             return Results.NotFound();
         }
-
-        if (request.LecturerId.HasValue)
+        catch (CatalogValidationException ex)
         {
-            if (request.LecturerId == Guid.Empty)
-            {
-                return Results.BadRequest(new { code = "invalid_lecturer", message = "LecturerId is required." });
-            }
-
-            @class.LecturerId = request.LecturerId.Value;
+            return Results.BadRequest(new { code = ex.Code, message = ex.Message });
         }
-
-        if (request.SubjectId.HasValue && request.SubjectId != @class.SubjectId)
+        catch (CatalogConflictException ex)
         {
-            if (request.SubjectId == Guid.Empty ||
-                !await db.Subjects.AnyAsync(subject => subject.Id == request.SubjectId, cancellationToken))
-            {
-                return Results.BadRequest(new { code = "invalid_subject", message = "Subject does not exist." });
-            }
-
-            if (await db.StudentEnrollments.AnyAsync(enrollment => enrollment.ClassId == id, cancellationToken))
-            {
-                return Results.Conflict(new
-                {
-                    code = "class_subject_locked",
-                    message = "A class with enrollments cannot be moved to another subject."
-                });
-            }
-
-            @class.SubjectId = request.SubjectId.Value;
-            @class.EnrollmentSubjectId = request.SubjectId.Value;
+            return Results.Conflict(new { code = ex.Code, message = ex.Message });
         }
-
-        var publishError = await SaveAndPublishAsync(db, eventBus, @class, cancellationToken);
-        return publishError ?? Results.Ok(ClassSummary.From(@class));
-    }
-
-    private static async Task<IResult?> SaveAndPublishAsync(
-        CatalogDbContext db,
-        IEventBus eventBus,
-        Class @class,
-        CancellationToken cancellationToken)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-
-        try
+        catch (ClassEventPublishException ex)
         {
-            await db.SaveChangesAsync(cancellationToken);
-            await eventBus.PublishAsync(
-                new ClassLecturerAssigned(@class.Id, @class.Name, @class.LecturerId),
-                cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return null;
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
-        catch (DbUpdateException exception) when (exception.InnerException is not null)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Results.Conflict(new { code = "class_conflict", message = "Class data conflicts with an existing class." });
-        }
-        catch (Exception)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Results.Problem(
-                "Failed to publish ClassLecturerAssigned event; the class change was not saved. Please retry.",
-                statusCode: StatusCodes.Status503ServiceUnavailable);
-        }
-    }
-
-    private static string? NormalizeName(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? null : name.Trim().ToUpperInvariant();
-
-    private static IResult? ValidateClassInput(string? normalizedName, Guid lecturerId, Guid? subjectId)
-    {
-        if (normalizedName is null)
-        {
-            return Results.BadRequest(new { code = "invalid_class_name", message = "Name is required." });
-        }
-
-        if (normalizedName.Length > 256)
-        {
-            return Results.BadRequest(new { code = "class_name_too_long", message = "Name must be at most 256 characters." });
-        }
-
-        if (lecturerId == Guid.Empty)
-        {
-            return Results.BadRequest(new { code = "invalid_lecturer", message = "LecturerId is required." });
-        }
-
-        if (subjectId == Guid.Empty)
-        {
-            return Results.BadRequest(new { code = "invalid_subject", message = "SubjectId is required." });
-        }
-
-        return null;
     }
 }
-
-public sealed record LegacyClassSummary(Guid Id, string Name, Guid? LecturerId);
-
-public sealed record ClassSummary(Guid Id, string Name, Guid LecturerId, Guid? SubjectId, string? SubjectCode)
-{
-    public static ClassSummary From(Class item) =>
-        new(item.Id, item.Name, item.LecturerId, item.SubjectId, item.Subject?.Code);
-}
-
-public sealed record RegistrationClassOption(Guid Id, string Name, Guid SubjectId);
-
-public sealed record CreateLegacyClassRequest(string? Name, Guid LecturerId);
-
-public sealed record CreateSubjectScopedClassRequest(string? Name, Guid LecturerId, Guid SubjectId);
-
-public sealed record UpdateClassRequest(Guid? LecturerId, Guid? SubjectId);

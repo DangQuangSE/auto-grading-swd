@@ -1,0 +1,19 @@
+{
+  "target": "phase-04-slim-endpoints-and-dto",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/submission-layered-refactor/quality/phase-04-slim-endpoints-and-dto-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/ExtractedArtifact.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/Submission.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Dto/ExtractedArtifactResponse.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Dto/SubmissionResponse.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Dto/UploadSubmissionForm.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionService.cs"
+  ],
+  "source_fingerprint": "sha256:847c9926c59dba3b45efae28b68efe0b760c2891448023b21298814eb555ffb9",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "open_blocking_findings": 0
+}

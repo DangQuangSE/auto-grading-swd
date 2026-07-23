@@ -1,6 +1,8 @@
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Endpoints;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Catalog.Api.Jobs;
+using AutoGrading.Catalog.Api.Repository;
+using AutoGrading.Catalog.Api.Service;
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Jobs;
@@ -24,8 +26,18 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
 builder.Services.AddScoped<RubricParsingJob>();
-builder.Services.AddScoped<EnrollmentQueries>();
-builder.Services.AddScoped<EnrollmentCommands>();
+
+builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
+builder.Services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
+builder.Services.AddScoped<IRubricRepository, RubricRepository>();
+
+builder.Services.AddScoped<ISubjectService, SubjectService>();
+builder.Services.AddScoped<IAssignmentService, AssignmentService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IRubricService, RubricService>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

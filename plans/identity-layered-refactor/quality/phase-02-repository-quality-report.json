@@ -1,0 +1,40 @@
+{
+  "mode": "gate",
+  "target": "phase-02-repository",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Repository/UserRepository.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Repository/IdentityDbContext.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/AuthEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Authorization/RosterAuthorization.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IUserRepository.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/ClassLecturerAssignedHandler.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Handlers/SubmissionUploadedHandler.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-001",
+      "severity": "MEDIUM",
+      "rule": "OWN_SINGLE_CONCERN_OWNER",
+      "status": "REJECTED",
+      "introduced_by_current_change": true,
+      "applicable": false,
+      "confidence": "high",
+      "location": "be/src/Services/Identity/AutoGrading.Identity.Api/Repository/UserRepository.cs:38-41",
+      "evidence": "ListAsync returns `await db.Users.AsNoTracking().ToListAsync(ct)` and `await db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).ToListAsync(ct)` on both branches. Original code (commit d2f882f, UsersEndpoints.cs:19-22) identically used AsNoTracking() in this same location. Actual usage in UsersEndpoints.cs:20-27 passes the result to FilterToAuthorizedAsync (which only reads/filters) and ResolveClassNamesAsync (which only reads to build response DTOs), then returns JSON. No code path mutates the returned entities or calls SaveChangesAsync.",
+      "why_it_matters": "Phase file contradicts itself: line 34 first says 'ListAsync → the db.Users.AsNoTracking() chain...' (matching original), then immediately says 'return a tracked list (not AsNoTracking())'. The second clause conflicts with the first and with the original code. Implementation correctly followed the first clause and original pattern. The 'tracked list' instruction appears to be copy-paste from GetByIdAsync (which legitimately needs tracking for UpdateRosterFieldsAsync mutation). ListAsync is read-only; AsNoTracking() is correct and more efficient.",
+      "required_action": "REJECT THIS FINDING. No action required on code. The phase file's text has an internal contradiction that does not correspond to a real code defect. Implementation is correct.",
+      "owner": "quang"
+    }
+  ]
+}

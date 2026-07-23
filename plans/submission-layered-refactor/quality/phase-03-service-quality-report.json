@@ -1,0 +1,35 @@
+{
+  "mode": "gate",
+  "target": "phase-03-service",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionService.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Service/SubmissionService.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/Submission.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs"
+  ],
+  "verdict": "APPROVED",
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [],
+  "notes": [
+    "Behavioral equivalence verified: authorization logic (student/lecturer/admin checks, error cases) matches pre-refactor endpoint code from commit afc855f",
+    "Exception taxonomy is sound: SubmissionNotFoundException (404 empty), SubmissionForbiddenException (403), SubmissionValidationException (400), SubmissionAssignmentNotFoundException (404 with body), SubmissionAttempt{Limit,Conflict}Exception (409) all distinct and correctly mapped at endpoint boundary",
+    "Stream ownership correctly respected: Service.UploadAsync only reads streams without disposing; endpoint maintains ownership via await using blocks",
+    "Transaction boundaries preserved: Service does not open transactions; Serializable transaction in CreateWithAttemptCheckAsync stays within Repository layer; external calls (catalog, storage, eventBus) happen after transaction commits",
+    "Dependency boundaries enforced: Service layer contains no Microsoft.AspNetCore types (ClaimsPrincipal, IFormFile, IResult); requires plain RequesterContext and UploadSubmissionCommand records",
+    "Authorization checks correctly refactored: EnsureCanActOnAsync extracted as private helper for GetForRequesterAsync and RetryAsync, reusing GetLecturerAllowedStudentIdsAsync for consistent lecturer enrollment filtering across all operations",
+    "Endpoint validation moved correctly: TryBuildRequesterContext validates NameIdentifier claim → Guid for students before service call (matching old inline checks at lines 32, 61, 82, 112, 133 from pre-refactor code)",
+    "Attempt exception handling: SubmissionAttempt{Limit,Conflict}Exception from repository propagate unchanged to endpoint (allowed by phase spec 'or let them propagate') with correct status code (409 Conflict) and response body",
+    "Idempotency note correctly recorded: retry endpoint pre-existing lack of de-duplication (calling twice enqueues job twice) preserved as-is per behavior-preservation scope; documented in service code",
+    "dotnet build: 0 errors, 0 warnings (phase verification prerequisite met)"
+  ]
+}

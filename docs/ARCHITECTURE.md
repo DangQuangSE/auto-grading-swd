@@ -457,7 +457,7 @@ Student xem kết quả (user-web)
 | **API** | ASP.NET Core Minimal APIs | 5 service | `Endpoints/*.cs` |
 | **Gateway** | YARP ReverseProxy 2.3.0 | 1 (Gateway) | `appsettings.json:ReverseProxy` |
 | **Message Queue** | RabbitMQ (topic exchange) | 5 service | `appsettings.json:RabbitMq` |
-| **ORM** | EF Core 8.0.10 | 5 service | `Data/*DbContext.cs` |
+| **ORM** | EF Core 8.0.10 | 5 service | `Data/*DbContext.cs` (Submission, Grading, Identity, Catalog: `Repository/*DbContext.cs`, per the ongoing layered-architecture rollout — only Notification remains on `Data/`) |
 | **Database** | SQL Server 2022 | 5 DB riêng | `appsettings.json:ConnectionStrings` |
 | **Object Storage** | MinIO | 2 service (Catalog, Submission) | `appsettings.json:Minio` |
 | **Background Jobs** | Hangfire 1.8.14 | 3 service (Catalog, Submission, Grading) | `Program.cs` |

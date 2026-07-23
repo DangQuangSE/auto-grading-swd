@@ -1,7 +1,6 @@
 using AutoGrading.Common.Messaging;
 using AutoGrading.Contracts.Events;
-using AutoGrading.Identity.Api.Data;
-using AutoGrading.Identity.Api.Domain;
+using AutoGrading.Identity.Api.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Identity.Api.Handlers;
@@ -10,15 +9,12 @@ namespace AutoGrading.Identity.Api.Handlers;
 /// insert-only, never overwritten, so a re-grade by a different lecturer keeps the prior grader's row too.
 /// Does not look up SubmissionStudent here; the SubmissionGrader/SubmissionStudent join happens at
 /// authorization-check time so arrival order between the two events never matters.</summary>
-public sealed class GradePublishedHandler(IdentityDbContext db, ILogger<GradePublishedHandler> logger)
+public sealed class GradePublishedHandler(IUserRepository repository, ILogger<GradePublishedHandler> logger)
     : IIntegrationEventHandler<GradePublished>
 {
     public async Task HandleAsync(GradePublished @event, CancellationToken cancellationToken = default)
     {
-        var exists = await db.SubmissionGraders.AnyAsync(
-            g => g.SubmissionId == @event.SubmissionId && g.LecturerId == @event.PublishedByUserId,
-            cancellationToken);
-        if (exists)
+        if (await repository.SubmissionGraderExistsAsync(@event.SubmissionId, @event.PublishedByUserId, cancellationToken))
         {
             logger.LogDebug(
                 "GradePublishedHandler: grader {LecturerId} already recorded for submission {SubmissionId}; redelivery.",
@@ -27,11 +23,9 @@ public sealed class GradePublishedHandler(IdentityDbContext db, ILogger<GradePub
             return;
         }
 
-        db.SubmissionGraders.Add(new SubmissionGrader { SubmissionId = @event.SubmissionId, LecturerId = @event.PublishedByUserId });
-
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            await repository.InsertSubmissionGraderAsync(@event.SubmissionId, @event.PublishedByUserId, cancellationToken);
         }
         catch (DbUpdateException ex) when (ex.IsPrimaryKeyViolation())
         {

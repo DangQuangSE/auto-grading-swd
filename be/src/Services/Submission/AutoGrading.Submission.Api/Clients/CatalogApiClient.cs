@@ -1,17 +1,7 @@
 using System.Net.Http.Json;
+using AutoGrading.SubmissionSvc.Api.Interfaces;
 
 namespace AutoGrading.SubmissionSvc.Api.Clients;
-
-public sealed record AssignmentDto(Guid Id, Guid SubjectId, int MaxAttempts);
-
-public interface ICatalogApiClient
-{
-    Task<AssignmentDto?> GetAssignmentAsync(Guid assignmentId, CancellationToken cancellationToken);
-
-    /// <summary>Student ids enrolled in any class the given lecturer teaches for the given subject
-    /// (a lecturer may teach several classes of the same subject).</summary>
-    Task<HashSet<Guid>> GetLecturerStudentIdsAsync(Guid lecturerId, Guid subjectId, CancellationToken cancellationToken);
-}
 
 public sealed class CatalogApiClient(HttpClient httpClient) : ICatalogApiClient
 {

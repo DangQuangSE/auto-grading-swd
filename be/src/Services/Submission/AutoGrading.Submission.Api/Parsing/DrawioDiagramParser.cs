@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using AutoGrading.SubmissionSvc.Api.Interfaces;
 
 namespace AutoGrading.SubmissionSvc.Api.Parsing;
 

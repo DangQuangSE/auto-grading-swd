@@ -1,23 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AutoGrading.Grading.Api.Interfaces;
 
 namespace AutoGrading.Grading.Api.Clients;
-
-public enum ArtifactKindDto
-{
-    Report,
-    Diagram,
-}
-
-public sealed record ExtractedArtifactDto(Guid Id, ArtifactKindDto Kind, string? Content, string? Warnings, string? ImagesJson);
-
-public sealed record SubmissionDto(Guid Id, Guid AssignmentId, Guid StudentId, List<ExtractedArtifactDto> Artifacts);
-
-public interface ISubmissionApiClient
-{
-    Task<SubmissionDto?> GetSubmissionAsync(Guid submissionId, CancellationToken cancellationToken);
-}
 
 /// <summary>Fetches a submission and its extracted report/diagram content from the Submission service.</summary>
 public sealed class SubmissionApiClient(HttpClient httpClient) : ISubmissionApiClient

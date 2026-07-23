@@ -1,0 +1,27 @@
+{
+  "mode": "gate",
+  "target": "phase-03-service",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IAuthService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IUserService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Service/AuthService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Service/UserService.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/AuthEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Endpoints/UsersEndpoints.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Program.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Interfaces/IUserRepository.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Domain/User.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/RosterImport/RosterFileParser.cs",
+    "be/src/Services/Identity/AutoGrading.Identity.Api/Repository/UserRepository.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

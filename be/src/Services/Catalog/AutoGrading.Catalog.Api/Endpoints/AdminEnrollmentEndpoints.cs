@@ -1,3 +1,5 @@
+using AutoGrading.Catalog.Api.Interfaces;
+
 namespace AutoGrading.Catalog.Api.Endpoints;
 
 internal static class AdminEnrollmentEndpoints
@@ -17,22 +19,22 @@ internal static class AdminEnrollmentEndpoints
         Guid? studentId,
         Guid? subjectId,
         Guid? classId,
-        EnrollmentQueries queries,
+        IEnrollmentService service,
         CancellationToken cancellationToken) =>
-        Results.Ok(await queries.ListAdminAsync(
-            page,
-            pageSize,
+        Results.Ok(await service.ListAdminAsync(
             studentId,
             subjectId,
             classId,
+            page,
+            pageSize,
             cancellationToken));
 
     private static async Task<IResult> CorrectAsync(
         Guid studentId,
         Guid subjectId,
         UpsertEnrollmentRequest request,
-        EnrollmentCommands commands,
+        IEnrollmentService service,
         CancellationToken cancellationToken) =>
         EnrollmentHttpResults.From(
-            await commands.CorrectAdminAsync(studentId, subjectId, request, cancellationToken));
+            await service.CorrectAdminAsync(studentId, subjectId, request.ClassId, request.RowVersion, cancellationToken));
 }

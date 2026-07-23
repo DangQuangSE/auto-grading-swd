@@ -1,3 +1,5 @@
+using AutoGrading.Catalog.Api.Interfaces;
+
 namespace AutoGrading.Catalog.Api.Endpoints;
 
 internal static class EnrollmentHttpResults

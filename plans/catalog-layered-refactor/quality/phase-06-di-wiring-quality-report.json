@@ -1,0 +1,32 @@
+{
+  "mode": "gate",
+  "target": "phase-06-di-wiring",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-24T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/AssignmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/RubricsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/SubjectService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/RubricService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/EnrollmentService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/SubjectRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/EnrollmentRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/RubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/RubricParsingJob.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/ISubjectRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IEnrollmentRepository.cs",
+    "be/AutoGrading.sln"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

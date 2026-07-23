@@ -1,0 +1,31 @@
+{
+  "mode": "gate",
+  "target": "phase-04-slim-endpoints-and-dto",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T14:50:00Z",
+  "reviewed_files": [
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/AiCriterionScoreResponse.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/AiGradingRunResponse.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/FinalGradeDetailResponse.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/FinalGradeResponse.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/PublishedGradeResult.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/PublishGradeRequest.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/RegradeRequest.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Dto/PublishAllResponse.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Endpoints/GradesEndpoints.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Domain/FinalGrade.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Domain/AiGradingRun.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Domain/AiCriterionScore.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Interfaces/IGradingService.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Service/GradingService.cs",
+    "be/src/Services/Grading/AutoGrading.Grading.Api/Program.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

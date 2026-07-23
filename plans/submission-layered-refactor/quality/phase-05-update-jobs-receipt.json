@@ -1,0 +1,19 @@
+{
+  "target": "phase-05-update-jobs",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/submission-layered-refactor/quality/phase-05-update-jobs-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/ExtractedArtifact.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Domain/Submission.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/SubmissionUploadedHandler.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Repository/SubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Service/SubmissionService.cs"
+  ],
+  "source_fingerprint": "sha256:a53b4c99835787c2464668d12f22704a41ff9f63cc6f8d96694d3348f463a8ea",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "open_blocking_findings": 0
+}

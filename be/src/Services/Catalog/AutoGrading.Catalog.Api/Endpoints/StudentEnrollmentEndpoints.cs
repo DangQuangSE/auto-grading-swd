@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AutoGrading.Catalog.Api.Interfaces;
 
 namespace AutoGrading.Catalog.Api.Endpoints;
 
@@ -17,11 +18,11 @@ internal static class StudentEnrollmentEndpoints
         int? page,
         int? pageSize,
         ClaimsPrincipal caller,
-        EnrollmentQueries queries,
+        IEnrollmentService service,
         CancellationToken cancellationToken)
     {
         return TryGetStudentId(caller, out var studentId)
-            ? Results.Ok(await queries.ListStudentAsync(studentId, page, pageSize, cancellationToken))
+            ? Results.Ok(await service.ListStudentAsync(studentId, page, pageSize, cancellationToken))
             : Results.Unauthorized();
     }
 
@@ -29,7 +30,7 @@ internal static class StudentEnrollmentEndpoints
         Guid subjectId,
         UpsertEnrollmentRequest request,
         ClaimsPrincipal caller,
-        EnrollmentCommands commands,
+        IEnrollmentService service,
         CancellationToken cancellationToken)
     {
         if (!TryGetStudentId(caller, out var studentId))
@@ -38,7 +39,7 @@ internal static class StudentEnrollmentEndpoints
         }
 
         return EnrollmentHttpResults.From(
-            await commands.UpsertStudentAsync(studentId, subjectId, request, cancellationToken));
+            await service.UpsertStudentAsync(studentId, subjectId, request.ClassId, request.RowVersion, cancellationToken));
     }
 
     private static bool TryGetStudentId(ClaimsPrincipal caller, out Guid studentId) =>

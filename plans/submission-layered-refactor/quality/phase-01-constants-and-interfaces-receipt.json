@@ -1,0 +1,22 @@
+{
+  "target": "phase-01-constants-and-interfaces",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/submission-layered-refactor/quality/phase-01-constants-and-interfaces-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Clients/CatalogApiClient.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Constant/SubmissionConstants.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Endpoints/SubmissionsEndpoints.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/IArtifactParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ICatalogApiClient.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Interfaces/ISubmissionRepository.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Jobs/ExtractionJob.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/ArtifactParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/DocxReportParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Parsing/DrawioDiagramParser.cs",
+    "be/src/Services/Submission/AutoGrading.Submission.Api/Program.cs"
+  ],
+  "source_fingerprint": "sha256:75910e553ab737bbe02002019de569639bb358ff352e775149bd3ce2fca21774",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "open_blocking_findings": 0
+}
