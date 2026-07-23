@@ -29,14 +29,39 @@ export type FinalGrade = {
   createdAt: string;
 };
 
-export async function getGradingRuns(submissionId: string): Promise<AiGradingRun[]> {
+export type GradingResult = {
+  gradingRun: AiGradingRun | null;
+  isPublished: boolean;
+  /** Grading is complete on the backend but lecturer has not published yet. */
+  gradingDone: boolean;
+};
+
+export async function getGradingResult(submissionId: string): Promise<GradingResult> {
   try {
-    const result = await apiGet<{ gradingRun?: AiGradingRun | null }>(`/grading/grades/${submissionId}/result`);
-    return result.gradingRun ? [result.gradingRun] : [];
+    const result = await apiGet<{ finalGrade?: FinalGrade | null; gradingRun?: AiGradingRun | null }>(
+      `/grading/grades/${submissionId}/result`
+    );
+    return {
+      gradingRun: result.gradingRun ?? null,
+      isPublished: true,
+      gradingDone: true,
+    };
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return [];
+    if (error instanceof ApiError && error.status === 404) {
+      // Backend returns { gradingDone: bool } in the 404 body when grading is complete
+      // but the grade has not been published yet.
+      const body = error.body as { gradingDone?: boolean } | null;
+      const gradingDone = body?.gradingDone === true;
+      return { gradingRun: null, isPublished: false, gradingDone };
+    }
     throw error;
   }
+}
+
+/** @deprecated Use getGradingResult instead. Kept as shim for any legacy callers. */
+export async function getGradingRuns(submissionId: string): Promise<AiGradingRun[]> {
+  const result = await getGradingResult(submissionId);
+  return result.gradingRun ? [result.gradingRun] : [];
 }
 
 export async function getFinalGrade(submissionId: string): Promise<FinalGrade | null> {
