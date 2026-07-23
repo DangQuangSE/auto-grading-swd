@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using AutoGrading.Common.Auth;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +50,8 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 builder.Services.AddHealthChecks();

@@ -26,6 +26,17 @@ builder.Services.AddScoped<GradePublishedConsumer>();
 builder.Services.AddScoped<RubricParsedConsumer>();
 builder.Services.AddScoped<SubmissionStatusChangedConsumer>();
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5173", "http://localhost:5174" };
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
+
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
@@ -39,6 +50,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

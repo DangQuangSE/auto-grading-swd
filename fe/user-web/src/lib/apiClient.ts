@@ -14,10 +14,13 @@ export type AppSession = {
 
 export class ApiError extends Error {
   status: number;
+  /** Parsed JSON body of the error response, if available. */
+  body: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body: unknown = null) {
     super(message);
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -42,12 +45,13 @@ export function clearStoredSession(): void {
   localStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readErrorBody(response: Response): Promise<{ message: string; body: unknown }> {
   try {
     const body = (await response.json()) as { message?: string; title?: string };
-    return body.message ?? body.title ?? response.statusText;
+    const message = (body as any).message ?? (body as any).title ?? response.statusText;
+    return { message, body };
   } catch {
-    return response.statusText;
+    return { message: response.statusText, body: null };
   }
 }
 
@@ -65,7 +69,8 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
 
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorMessage(response));
+    const { message, body } = await readErrorBody(response);
+    throw new ApiError(response.status, message, body);
   }
 
   if (response.status === 204) {

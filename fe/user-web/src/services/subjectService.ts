@@ -29,8 +29,13 @@ type PagedResult<T> = {
 };
 
 export async function listSubjects() {
-  const result = await apiGet<PagedResult<Subject>>(`/catalog/subjects?pageSize=${MAX_PAGE_SIZE}`);
-  return [...result.items].sort((a, b) => a.code.localeCompare(b.code));
+  const first = await apiGet<PagedResult<Subject>>(`/catalog/subjects?page=1&pageSize=${MAX_PAGE_SIZE}`);
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const next = await apiGet<PagedResult<Subject>>(`/catalog/subjects?page=${page}&pageSize=${MAX_PAGE_SIZE}`);
+    items.push(...next.items);
+  }
+  return items.sort((a, b) => a.code.localeCompare(b.code));
 }
 
 export async function listOpenSubjects() {
@@ -46,9 +51,14 @@ export async function listOpenSubjects() {
 }
 
 export async function listAssignments(subjectId?: string) {
-  const url = subjectId 
+  const baseUrl = subjectId 
     ? `/catalog/assignments?subjectId=${subjectId}&pageSize=${MAX_PAGE_SIZE}`
     : `/catalog/assignments?pageSize=${MAX_PAGE_SIZE}`;
-  const result = await apiGet<PagedResult<Assignment>>(url);
-  return [...result.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const first = await apiGet<PagedResult<Assignment>>(`${baseUrl}&page=1`);
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const next = await apiGet<PagedResult<Assignment>>(`${baseUrl}&page=${page}`);
+    items.push(...next.items);
+  }
+  return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
