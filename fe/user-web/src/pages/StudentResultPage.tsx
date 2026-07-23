@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { StateBlock } from "../components/ui/StateBlock";
-import { getGradingRuns, getFinalGrade } from "../services/gradingService";
+import { getGradingResult, getFinalGrade } from "../services/gradingService";
 import { listMySubmissions } from "../services/submissionService";
 import { useAuth } from "../providers/AuthProvider";
 import { useState, useEffect } from "react";
@@ -36,14 +36,15 @@ export function StudentResultPage() {
 
   const queryClient = useQueryClient();
 
-  const runs = useQuery({
-    queryKey: ["grading-runs", selectedId],
-    queryFn: () => getGradingRuns(selectedId),
+  const gradingResult = useQuery({
+    queryKey: ["grading-result", selectedId],
+    queryFn: () => getGradingResult(selectedId),
     enabled: Boolean(selectedId),
     refetchInterval: (query) => {
-      const runStatus = query.state.data?.[0]?.status;
-      if (runStatus === "completed" || runStatus === "failed") return false;
-      return selectedId ? 2000 : false;
+      const run = query.state.data?.gradingRun;
+      if (run?.status === "completed" || run?.status === "failed") return false;
+      if (query.state.data?.isPublished) return false;
+      return selectedId ? 3000 : false;
     },
   });
 
@@ -52,25 +53,25 @@ export function StudentResultPage() {
     queryFn: () => listMySubmissions(session!.user.id),
     enabled: Boolean(session),
     refetchInterval: (query) => {
-      const currentSub = query.state.data?.find(s => s.id === selectedId);
+      const currentSub = query.state.data?.find(s => s.id.toLowerCase() === selectedId.toLowerCase());
       const stateStr = currentSub?.state?.toLowerCase();
       if (stateStr === "failed") return false;
-      const latestRunStatus = runs.data?.[0]?.status;
-      if (latestRunStatus === "completed" || latestRunStatus === "failed") return false;
       return selectedId ? 2000 : false;
     },
   });
 
-  const latestRun = runs.data?.[0] ?? null;
-  const sub = submissions.data?.find(s => s.id === selectedId);
+  const latestRun = gradingResult.data?.gradingRun ?? null;
+  const isPublished = gradingResult.data?.isPublished ?? false;
+  const gradingDone = gradingResult.data?.gradingDone ?? false;
+  const sub = submissions.data?.find(s => s.id.toLowerCase() === selectedId.toLowerCase());
 
   let baseStatus: GradingStatus = null;
   if (sub) {
-     const stateStr = String(sub.state).toLowerCase();
-     if (stateStr === "uploaded") baseStatus = "Uploaded";
-     if (stateStr === "extracting") baseStatus = "Extracting";
-     if (stateStr === "extracted") baseStatus = "AiGrading";
-     if (stateStr === "failed") baseStatus = "ExtractionFailed";
+    const stateStr = String(sub.state).toLowerCase();
+    if (stateStr === "uploaded") baseStatus = "Uploaded";
+    if (stateStr === "extracting") baseStatus = "Extracting";
+    if (stateStr === "extracted") baseStatus = "AiGrading";
+    if (stateStr === "failed") baseStatus = "ExtractionFailed";
   }
 
   if (latestRun) {
@@ -78,6 +79,9 @@ export function StudentResultPage() {
     if (latestRun.status === "completed") baseStatus = "Completed";
     if (latestRun.status === "failed") baseStatus = "AiGradingFailed";
   }
+
+  // Grading is done on the backend (unpublished) — always show Completed on the progress bar.
+  if (gradingDone && !latestRun) baseStatus = "Completed";
 
   const isFinished = baseStatus === "Completed" || baseStatus === "AiGradingFailed" || baseStatus === "ExtractionFailed";
   const effectiveStatus = isFinished ? baseStatus : (liveStatus ?? baseStatus);
@@ -179,13 +183,13 @@ export function StudentResultPage() {
           >
             <option value="">Select a submission</option>
             {(submissions.data ?? []).map((s) => {
-              const assignment = assignments.data?.find(a => a.id === s.assignmentId);
-              const subject = subjects.data?.find(sub => sub.id === assignment?.subjectId);
-              const subjectName = subject?.code || "Unknown Subject";
-              const assignmentName = assignment?.title || "Unknown Assignment";
+              const assignment = assignments.data?.find(a => a.id.toLowerCase() === s.assignmentId.toLowerCase());
+              const subject = subjects.data?.find(sub => sub.id.toLowerCase() === assignment?.subjectId?.toLowerCase());
+              const subjectName = subject?.code || (subjects.isLoading || assignments.isLoading ? "Loading..." : "Unknown Subject");
+              const assignmentName = assignment?.title || (assignments.isLoading ? "Loading..." : "Unknown Assignment");
               const fileName = getFileName(s.reportObjectKey);
               const time = new Date(s.createdAt).toLocaleString();
-              
+
               return (
                 <option key={s.id} value={s.id}>
                   {subjectName} - {assignmentName} - {fileName} - {time}
@@ -200,11 +204,11 @@ export function StudentResultPage() {
         <StateBlock title="No submission selected" detail="Select a submission above to view results." />
       )}
 
-      {selectedId && runs.isLoading && <StateBlock title="Loading results…" />}
+      {selectedId && gradingResult.isLoading && <StateBlock title="Loading results…" />}
 
-      {runs.error && <StateBlock title="Error" detail={(runs.error as Error).message} />}
+      {gradingResult.error && <StateBlock title="Error" detail={(gradingResult.error as Error).message} />}
 
-      {selectedId && !runs.isLoading && !latestRun && (
+      {selectedId && !gradingResult.isLoading && !latestRun && !gradingDone && (
         <StateBlock title="Grading not started" detail="The AI grading job has not run yet. Please wait." />
       )}
 
@@ -222,21 +226,27 @@ export function StudentResultPage() {
       {liveError && <StateBlock title="Processing Error" detail={liveError} />}
       {(effectiveStatus === "ExtractionFailed" || effectiveStatus === "AiGradingFailed") && (
         <div style={{ marginBottom: "2rem" }}>
-           <Button onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending}>
-             {retryMutation.isPending ? "Retrying..." : "Thử chấm lại"}
-           </Button>
+          <Button onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending}>
+            {retryMutation.isPending ? "Retrying..." : "Thử chấm lại"}
+          </Button>
         </div>
       )}
 
-      {latestRun && !isRunning && (
+      {/* Grading complete but not yet published — show banner, no scores */}
+      {gradingDone && !isPublished && !isRunning && (
+        <div style={{ padding: "1rem", background: "#fefce8", borderRadius: "0.5rem", marginBottom: "1rem", color: "#854d0e", border: "1px solid #fde68a" }}>
+          Bài đã chấm xong — đang chờ giảng viên xem xét và công bố điểm.
+        </div>
+      )}
+
+      {/* Published — show final grade and breakdown */}
+      {isPublished && latestRun && !isRunning && (
         <div className="result-panel">
           {grade.data ? (
             <p style={{ fontSize: "0.85rem", color: "green", fontWeight: 600 }}>
-              ✓ Final grade published: {grade.data.finalScore}
+              ✓ Điểm đã được công bố: {grade.data.finalScore}
             </p>
-          ) : (
-            <p style={{ fontSize: "0.85rem", color: "#888" }}>AI suggested — pending lecturer review</p>
-          )}
+          ) : null}
 
           <strong style={{ fontSize: "1.5rem" }}>
             {latestRun.status === "failed"

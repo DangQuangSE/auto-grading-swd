@@ -64,7 +64,14 @@ public static class GradesEndpoints
             .Where(p => p.SubmissionId == submissionId)
             .OrderByDescending(p => p.PublishedAt)
             .FirstOrDefaultAsync(ct);
-        if (publication is null) return Results.NotFound();
+        if (publication is null)
+        {
+            // Never leak raw AI scores to students before a lecturer publishes.
+            // Tell the client whether grading is done so it can show an appropriate banner.
+            var gradingDone = await db.AiGradingRuns.AnyAsync(
+                r => r.SubmissionId == submissionId && r.Status == AiGradingRunStatus.Completed, ct);
+            return Results.NotFound(new { gradingDone });
+        }
 
         var finalGrade = await db.FinalGrades.AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == publication.FinalGradeId, ct);
