@@ -1,6 +1,7 @@
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Endpoints;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Catalog.Api.Jobs;
+using AutoGrading.Catalog.Api.Repository;
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Extensions;
 using AutoGrading.Common.Jobs;
@@ -24,8 +25,15 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
 builder.Services.AddScoped<RubricParsingJob>();
+// EnrollmentQueries/EnrollmentCommands stay registered until Phase 3 switches Enrollment endpoints to IEnrollmentService.
 builder.Services.AddScoped<EnrollmentQueries>();
 builder.Services.AddScoped<EnrollmentCommands>();
+
+builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
+builder.Services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
+builder.Services.AddScoped<IRubricRepository, RubricRepository>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

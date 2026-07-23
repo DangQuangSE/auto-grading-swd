@@ -1,4 +1,4 @@
-using AutoGrading.Catalog.Api.Data;
+using AutoGrading.Catalog.Api.Repository;
 using AutoGrading.Contracts.Pagination;
 using Microsoft.EntityFrameworkCore;
 

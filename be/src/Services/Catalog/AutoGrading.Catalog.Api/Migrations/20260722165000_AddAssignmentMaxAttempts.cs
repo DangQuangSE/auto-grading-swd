@@ -1,4 +1,4 @@
-using AutoGrading.Catalog.Api.Data;
+using AutoGrading.Catalog.Api.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;

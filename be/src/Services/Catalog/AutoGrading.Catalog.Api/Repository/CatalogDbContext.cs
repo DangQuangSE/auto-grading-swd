@@ -1,7 +1,7 @@
 using AutoGrading.Catalog.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
-namespace AutoGrading.Catalog.Api.Data;
+namespace AutoGrading.Catalog.Api.Repository;
 
 public class CatalogDbContext : DbContext
 {

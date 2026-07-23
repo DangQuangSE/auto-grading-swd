@@ -1,0 +1,45 @@
+{
+  "mode": "gate",
+  "target": "phase-01-constants-and-interfaces",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-23T00:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Constant/CatalogConstants.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/CatalogExceptions.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/EnrollmentModels.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/RubricModels.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/ISubjectRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IAssignmentRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IClassRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IEnrollmentRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IRubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/ISubjectService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IAssignmentService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IClassService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IEnrollmentService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IRubricService.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": [
+    {
+      "id": "QUAL-001",
+      "severity": "MEDIUM",
+      "rule": "ERR_TAXONOMY_CONSISTENT",
+      "status": "RESOLVED",
+      "introduced_by_current_change": true,
+      "applicable": true,
+      "confidence": "high",
+      "location": "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/CatalogExceptions.cs:23",
+      "evidence": "RubricForbiddenException now correctly defined as `public sealed class RubricForbiddenException() : Exception(\"Requester is not authorized for this rubric.\");` with proper default message parameter.",
+      "why_it_matters": "Exception instances now carry a helpful error message for 403 responses to clients, matching the exception-taxonomy consistency established across Identity, Submission, and Grading services.",
+      "required_action": "Fix verified — no further action required.",
+      "owner": "cook"
+    }
+  ]
+}

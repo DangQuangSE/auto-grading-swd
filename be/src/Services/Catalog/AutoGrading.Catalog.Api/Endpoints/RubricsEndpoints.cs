@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Catalog.Api.Jobs;
 using AutoGrading.Common.Auth;
 using AutoGrading.Common.Messaging;
@@ -8,7 +8,6 @@ using AutoGrading.Common.Storage;
 using AutoGrading.Contracts.Events;
 using Hangfire;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Catalog.Api.Endpoints;
 
@@ -18,32 +17,13 @@ public static class RubricsEndpoints
     {
         var group = app.MapGroup("/rubrics").WithTags("Rubrics");
 
-        group.MapGet("/", async (Guid? subjectId, Guid? assignmentId, ClaimsPrincipal user, CatalogDbContext db, CancellationToken ct) =>
-            {
-                var query = db.Rubrics.AsNoTracking().Include(r => r.Criteria).AsQueryable();
-                if (subjectId is not null)
-                {
-                    query = query.Where(r => r.SubjectId == subjectId);
-                }
-
-                if (assignmentId is not null)
-                {
-                    query = query.Where(r => r.AssignmentId == assignmentId);
-                }
-
-                if (!user.IsInRole("admin"))
-                {
-                    var callerId = user.GetUserId();
-                    query = query.Where(r => r.Status == RubricStatus.Confirmed || r.LecturerId == callerId);
-                }
-
-                return Results.Ok(await query.ToListAsync(ct));
-            })
+        group.MapGet("/", async (Guid? subjectId, Guid? assignmentId, ClaimsPrincipal user, IRubricRepository repo, CancellationToken ct) =>
+                Results.Ok(await repo.ListAsync(subjectId, assignmentId, user.GetUserId(), user.IsInRole("admin"), ct)))
             .RequireAuthorization();
 
-        group.MapGet("/{id:guid}/file", async (Guid id, ClaimsPrincipal user, CatalogDbContext db, IObjectStorage storage, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/file", async (Guid id, ClaimsPrincipal user, IRubricRepository repo, IObjectStorage storage, CancellationToken ct) =>
             {
-                var rubric = await db.Rubrics.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
+                var rubric = await repo.DownloadFileAsync(id, ct);
                 if (rubric?.FileObjectKey is null)
                 {
                     return Results.NotFound();
@@ -84,7 +64,7 @@ public static class RubricsEndpoints
     private static async Task<IResult> UploadRubricAsync(
         [FromForm] UploadRubricForm form,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         IObjectStorage storage,
         IBackgroundJobClient backgroundJobs,
         CancellationToken cancellationToken)
@@ -98,7 +78,7 @@ public static class RubricsEndpoints
 
         var existingRubric = form.AssignmentId is null
             ? null
-            : await db.Rubrics.Include(r => r.Criteria).FirstOrDefaultAsync(r => r.AssignmentId == form.AssignmentId, cancellationToken);
+            : await repo.GetByAssignmentIdAsync(form.AssignmentId.Value, cancellationToken);
 
         if (existingRubric is not null && !IsAuthorized(existingRubric, user))
         {
@@ -122,8 +102,13 @@ public static class RubricsEndpoints
             existingRubric.Name = form.Name;
             existingRubric.FileObjectKey = objectKey;
             existingRubric.Status = RubricStatus.Parsing;
-            db.RubricCriteria.RemoveRange(existingRubric.Criteria);
-            rubric = existingRubric;
+
+            // Deliberate Phase 2 simplification: the original endpoint clears criteria and saves the field
+            // changes in one SaveChanges call. Splitting into two repository calls (clear, then update) costs
+            // one extra round-trip but keeps Repository/Endpoint boundaries clean; low risk since re-upload
+            // isn't a concurrent hot path and RubricParsingJob overwrites criteria again moments later anyway.
+            await repo.UpdateCriteriaAsync(existingRubric, new List<RubricCriterion>(), cancellationToken);
+            rubric = await repo.UpdateAsync(existingRubric, cancellationToken);
         }
         else
         {
@@ -136,10 +121,8 @@ public static class RubricsEndpoints
                 Scope = form.Scope,
                 LecturerId = form.Scope == RubricScope.SchoolWide ? null : userId,
             };
-            db.Rubrics.Add(rubric);
+            rubric = await repo.CreateAsync(rubric, cancellationToken);
         }
-
-        await db.SaveChangesAsync(cancellationToken);
 
         backgroundJobs.Enqueue<RubricParsingJob>(job => job.ExecuteAsync(rubric.Id, CancellationToken.None));
 
@@ -149,11 +132,11 @@ public static class RubricsEndpoints
     private static async Task<IResult> RetryParsingAsync(
         Guid id,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         IBackgroundJobClient backgroundJobs,
         CancellationToken cancellationToken)
     {
-        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: false, cancellationToken);
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, repo, includeCriteria: false, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -173,10 +156,10 @@ public static class RubricsEndpoints
         Guid id,
         List<UpdateCriterionRequest> request,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         CancellationToken cancellationToken)
     {
-        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: true, cancellationToken);
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, repo, includeCriteria: true, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -187,27 +170,34 @@ public static class RubricsEndpoints
             return Results.Conflict($"Rubric {id} is '{rubric.Status}', not 'Draft' — unlock it before editing criteria.");
         }
 
-        var newCriteria = db.ReplaceRubricCriteria(rubric, request.Select(criterion => new RubricCriterion
+        var criteria = request.Select(criterion => new RubricCriterion
         {
             RubricId = rubric.Id,
             Name = criterion.Name,
             Description = criterion.Description,
             MaxScore = criterion.MaxScore,
             OrderIndex = criterion.OrderIndex,
-        }).ToList());
+        }).ToList();
 
-        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
-        return saveError ?? Results.Ok(newCriteria);
+        try
+        {
+            var newCriteria = await repo.UpdateCriteriaAsync(rubric, criteria, cancellationToken);
+            return Results.Ok(newCriteria);
+        }
+        catch (CatalogConflictException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
     }
 
     private static async Task<IResult> ConfirmRubricAsync(
         Guid id,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         IEventBus eventBus,
         CancellationToken cancellationToken)
     {
-        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: true, cancellationToken);
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, repo, includeCriteria: true, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -222,10 +212,13 @@ public static class RubricsEndpoints
             return Results.Conflict(ex.Message);
         }
 
-        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
-        if (saveError is not null)
+        try
         {
-            return saveError;
+            rubric = await repo.ConfirmAsync(rubric, cancellationToken);
+        }
+        catch (CatalogConflictException ex)
+        {
+            return Results.Conflict(ex.Message);
         }
 
         await eventBus.PublishAsync(
@@ -245,10 +238,10 @@ public static class RubricsEndpoints
     private static async Task<IResult> UnlockRubricAsync(
         Guid id,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         CancellationToken cancellationToken)
     {
-        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, db, includeCriteria: false, cancellationToken);
+        var (rubric, error) = await LoadAuthorizedRubricAsync(id, user, repo, includeCriteria: false, cancellationToken);
         if (error is not null)
         {
             return error;
@@ -263,8 +256,16 @@ public static class RubricsEndpoints
             return Results.Conflict(ex.Message);
         }
 
-        var saveError = await TrySaveChangesAsync(db, id, cancellationToken);
-        return saveError ?? Results.Ok(rubric);
+        try
+        {
+            rubric = await repo.UnlockAsync(rubric, cancellationToken);
+        }
+        catch (CatalogConflictException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
+
+        return Results.Ok(rubric);
     }
 
     /// <summary>Loads a rubric by id, translating "not found" and "not authorized" into the matching <see cref="IResult"/>;
@@ -272,12 +273,11 @@ public static class RubricsEndpoints
     private static async Task<(Rubric? Rubric, IResult? Error)> LoadAuthorizedRubricAsync(
         Guid id,
         ClaimsPrincipal user,
-        CatalogDbContext db,
+        IRubricRepository repo,
         bool includeCriteria,
         CancellationToken cancellationToken)
     {
-        IQueryable<Rubric> query = includeCriteria ? db.Rubrics.Include(r => r.Criteria) : db.Rubrics;
-        var rubric = await query.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var rubric = await repo.GetByIdAsync(id, includeCriteria, cancellationToken);
         if (rubric is null)
         {
             return (null, Results.NotFound());
@@ -296,19 +296,6 @@ public static class RubricsEndpoints
     /// rubrics are a lecturer's in-progress work and shouldn't leak to other lecturers or students.</summary>
     private static bool CanView(Rubric rubric, ClaimsPrincipal user) =>
         rubric.Status == RubricStatus.Confirmed || IsAuthorized(rubric, user);
-
-    private static async Task<IResult?> TrySaveChangesAsync(CatalogDbContext db, Guid rubricId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-            return null;
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Results.Conflict($"Rubric {rubricId} was modified concurrently; reload and try again.");
-        }
-    }
 }
 
 public sealed class UploadRubricForm

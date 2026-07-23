@@ -1,6 +1,5 @@
-using System.Data;
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Contracts.Pagination;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,59 +26,29 @@ public static class SubjectsEndpoints
         int? page,
         int? pageSize,
         string? search,
-        CatalogDbContext db,
+        ISubjectRepository repo,
         CancellationToken cancellationToken)
     {
-        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-        var query = db.Subjects.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            query = query.Where(subject => subject.Code.Contains(term) || subject.Name.Contains(term));
-        }
-
-        return Results.Ok(await ToPagedResultAsync(query, normalizedPage, normalizedPageSize, cancellationToken));
+        var result = await repo.ListAsync(search, page, pageSize, cancellationToken);
+        return Results.Ok(ToSummaryPage(result));
     }
 
     private static async Task<IResult> ListOpenSubjectsAsync(
         int? page,
         int? pageSize,
-        CatalogDbContext db,
+        ISubjectRepository repo,
         CancellationToken cancellationToken)
     {
-        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-        var query = db.Subjects.AsNoTracking()
-            .Where(subject => subject.RegistrationStatus == RegistrationStatus.Open);
-
-        return Results.Ok(await ToPagedResultAsync(query, normalizedPage, normalizedPageSize, cancellationToken));
+        var result = await repo.ListOpenAsync(page, pageSize, cancellationToken);
+        return Results.Ok(ToSummaryPage(result));
     }
 
-    private static async Task<PagedResult<SubjectSummary>> ToPagedResultAsync(
-        IQueryable<Subject> query,
-        int page,
-        int pageSize,
-        CancellationToken cancellationToken)
-    {
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderBy(subject => subject.Code)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(subject => new SubjectSummary(
-                subject.Id,
-                subject.Code,
-                subject.Name,
-                subject.RegistrationStatus,
-                subject.CreatedAt))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<SubjectSummary>(items, page, pageSize, totalCount);
-    }
+    private static PagedResult<SubjectSummary> ToSummaryPage(PagedResult<Subject> result) =>
+        new(result.Items.Select(SubjectSummary.From).ToList(), result.Page, result.PageSize, result.TotalCount);
 
     private static async Task<IResult> CreateSubjectAsync(
         CreateSubjectRequest request,
-        CatalogDbContext db,
+        ISubjectRepository repo,
         CancellationToken cancellationToken)
     {
         var code = request.Code?.Trim().ToUpperInvariant();
@@ -104,15 +73,14 @@ public static class SubjectsEndpoints
             Name = name,
             RegistrationStatus = RegistrationStatus.Closed
         };
-        db.Subjects.Add(subject);
 
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            subject = await repo.CreateAsync(subject, cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (CatalogConflictException ex)
         {
-            return Results.Conflict(new { code = "subject_code_exists", message = "Subject code already exists." });
+            return Results.Conflict(new { code = ex.Code, message = ex.Message });
         }
 
         return Results.Created($"/subjects/{subject.Id}", SubjectSummary.From(subject));
@@ -121,7 +89,7 @@ public static class SubjectsEndpoints
     private static async Task<IResult> UpdateRegistrationAsync(
         Guid id,
         UpdateSubjectRegistrationRequest request,
-        CatalogDbContext db,
+        ISubjectRepository repo,
         CancellationToken cancellationToken)
     {
         if (!Enum.IsDefined(request.Status))
@@ -129,21 +97,8 @@ public static class SubjectsEndpoints
             return Results.BadRequest(new { code = "invalid_registration_status", message = "Status must be open or closed." });
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
-            cancellationToken);
-
-        var subject = await db.Subjects.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        if (subject is null)
-        {
-            return Results.NotFound();
-        }
-
-        subject.RegistrationStatus = request.Status;
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
-        return Results.Ok(SubjectSummary.From(subject));
+        var subject = await repo.UpdateRegistrationAsync(id, request.Status, cancellationToken);
+        return subject is null ? Results.NotFound() : Results.Ok(SubjectSummary.From(subject));
     }
 }
 

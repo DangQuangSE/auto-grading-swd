@@ -1,6 +1,6 @@
 using System.Data;
-using AutoGrading.Catalog.Api.Data;
 using AutoGrading.Catalog.Api.Domain;
+using AutoGrading.Catalog.Api.Repository;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
