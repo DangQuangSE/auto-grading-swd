@@ -1,10 +1,9 @@
 using AutoGrading.Catalog.Api.Domain;
-using AutoGrading.Catalog.Api.Repository;
+using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Common.Messaging;
 using AutoGrading.Common.OpenCode;
 using AutoGrading.Common.Storage;
 using AutoGrading.Contracts.Events;
-using Microsoft.EntityFrameworkCore;
 
 namespace AutoGrading.Catalog.Api.Jobs;
 
@@ -13,7 +12,7 @@ namespace AutoGrading.Catalog.Api.Jobs;
 /// extraction client to derive draft criteria, and transitions the rubric from Parsing to Draft.
 /// </summary>
 public sealed class RubricParsingJob(
-    CatalogDbContext db,
+    IRubricRepository repo,
     IObjectStorage storage,
     IOpenCodeClient openCodeClient,
     IEventBus eventBus,
@@ -21,7 +20,7 @@ public sealed class RubricParsingJob(
 {
     public async Task ExecuteAsync(Guid rubricId, CancellationToken cancellationToken = default)
     {
-        var rubric = await db.Rubrics.Include(r => r.Criteria).FirstOrDefaultAsync(r => r.Id == rubricId, cancellationToken);
+        var rubric = await repo.GetByIdAsync(rubricId, includeCriteria: true, cancellationToken);
         if (rubric is null)
         {
             logger.LogWarning("RubricParsingJob: rubric {RubricId} no longer exists; skipping.", rubricId);
@@ -53,17 +52,20 @@ public sealed class RubricParsingJob(
 
             var extractedCriteria = await openCodeClient.ParseRubricCriteriaAsync(documentText, cancellationToken);
 
-            var newCriteria = db.ReplaceRubricCriteria(rubric, extractedCriteria.Select(criterion => new RubricCriterion
+            var criteria = extractedCriteria.Select(criterion => new RubricCriterion
             {
                 RubricId = rubric.Id,
                 Name = criterion.Name,
                 Description = criterion.Description,
                 MaxScore = criterion.MaxScore,
                 OrderIndex = criterion.Order,
-            }).ToList());
+            }).ToList();
 
+            // Setting Status before the repository call means the single SaveChangesAsync inside
+            // UpdateCriteriaAsync commits the criteria replacement AND the status transition together,
+            // matching the original job's one-round-trip SaveChanges call exactly.
             rubric.Status = RubricStatus.Draft;
-            await db.SaveChangesAsync(cancellationToken);
+            var newCriteria = await repo.UpdateCriteriaAsync(rubric, criteria, cancellationToken);
 
             await eventBus.PublishAsync(
                 new RubricParsed(rubric.Id, rubric.SubjectId, rubric.AssignmentId, newCriteria.Count),

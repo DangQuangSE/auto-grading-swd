@@ -10,8 +10,9 @@ public interface IRubricRepository
 
     Task<Rubric?> GetByIdAsync(Guid id, bool includeCriteria, CancellationToken cancellationToken);
 
-    /// <summary>Always includes <see cref="Rubric.Criteria"/> — used by upload to find an existing rubric for the same assignment.</summary>
-    Task<Rubric?> GetByAssignmentIdAsync(Guid assignmentId, CancellationToken cancellationToken);
+    /// <summary>Used by upload to find an existing rubric for the same assignment. <paramref name="includeCriteria"/>
+    /// should be <c>false</c> for an authorization-only check (avoids loading the criteria collection needlessly).</summary>
+    Task<Rubric?> GetByAssignmentIdAsync(Guid assignmentId, bool includeCriteria, CancellationToken cancellationToken);
 
     Task<Rubric> CreateAsync(Rubric rubric, CancellationToken cancellationToken);
 

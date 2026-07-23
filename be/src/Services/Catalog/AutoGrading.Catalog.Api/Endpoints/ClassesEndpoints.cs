@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AutoGrading.Catalog.Api.Domain;
+using AutoGrading.Catalog.Api.Dto;
 using AutoGrading.Catalog.Api.Interfaces;
 using AutoGrading.Contracts.Pagination;
 
@@ -28,11 +29,11 @@ public static class ClassesEndpoints
 
     private static async Task<IResult> ListLegacyClassesAsync(
         ClaimsPrincipal caller,
-        IClassRepository repo,
+        IClassService service,
         CancellationToken cancellationToken)
     {
         var includeLecturerId = caller.IsInRole("admin") || caller.IsInRole("lecturer");
-        var classes = await repo.ListAsync(cancellationToken);
+        var classes = await service.ListLegacyAsync(cancellationToken);
 
         return Results.Ok(classes
             .Select(item => new LegacyClassSummary(item.Id, item.Name, includeLecturerId ? item.LecturerId : null))
@@ -43,13 +44,12 @@ public static class ClassesEndpoints
         int? page,
         int? pageSize,
         Guid? subjectId,
-        IClassRepository repo,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        var result = await repo.ListAdminAsync(subjectId, page, pageSize, cancellationToken);
-        var items = result.Items.Select(ClassSummary.From).ToList();
+        var result = await service.ListAdminAsync(subjectId, page, pageSize, cancellationToken);
 
-        return Results.Ok(new PagedResult<ClassSummary>(items, result.Page, result.PageSize, result.TotalCount));
+        return Results.Ok(result.MapItems(ClassSummary.FromDomain));
     }
 
     private static async Task<IResult> ListSubjectClassesAsync(
@@ -57,71 +57,43 @@ public static class ClassesEndpoints
         int? page,
         int? pageSize,
         ClaimsPrincipal caller,
-        ISubjectRepository subjectRepo,
-        IClassRepository classRepo,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        var subject = await subjectRepo.GetByIdAsync(subjectId, cancellationToken);
-        if (subject is null || (caller.IsInRole("student") && subject.RegistrationStatus != RegistrationStatus.Open))
+        try
+        {
+            var result = await service.ListForSubjectAsync(subjectId, page, pageSize, caller.IsInRole("student"), cancellationToken);
+
+            return Results.Ok(result.MapItems(item => new RegistrationClassOption(item.Id, item.Name, subjectId)));
+        }
+        catch (CatalogNotFoundException)
         {
             return Results.NotFound();
         }
-
-        var result = await classRepo.ListForSubjectAsync(subjectId, page, pageSize, cancellationToken);
-        var items = result.Items.Select(item => new RegistrationClassOption(item.Id, item.Name, subjectId)).ToList();
-
-        return Results.Ok(new PagedResult<RegistrationClassOption>(items, result.Page, result.PageSize, result.TotalCount));
     }
 
     private static Task<IResult> CreateLegacyClassAsync(
         CreateLegacyClassRequest request,
-        ISubjectRepository subjectRepo,
-        IClassRepository classRepo,
+        IClassService service,
         CancellationToken cancellationToken) =>
-        CreateClassCoreAsync(request.Name, request.LecturerId, null, subjectRepo, classRepo, cancellationToken);
+        CreateClassCoreAsync(() => service.CreateLegacyAsync(request.Name, request.LecturerId, cancellationToken));
 
     private static Task<IResult> CreateSubjectScopedClassAsync(
         CreateSubjectScopedClassRequest request,
-        ISubjectRepository subjectRepo,
-        IClassRepository classRepo,
+        IClassService service,
         CancellationToken cancellationToken) =>
-        CreateClassCoreAsync(request.Name, request.LecturerId, request.SubjectId, subjectRepo, classRepo, cancellationToken);
+        CreateClassCoreAsync(() => service.CreateSubjectScopedAsync(request.Name, request.LecturerId, request.SubjectId, cancellationToken));
 
-    private static async Task<IResult> CreateClassCoreAsync(
-        string? name,
-        Guid lecturerId,
-        Guid? subjectId,
-        ISubjectRepository subjectRepo,
-        IClassRepository classRepo,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> CreateClassCoreAsync(Func<Task<Class>> createAsync)
     {
-        var normalizedName = NormalizeName(name);
-        var validationError = ValidateClassInput(normalizedName, lecturerId, subjectId);
-        if (validationError is not null)
-        {
-            return validationError;
-        }
-
-        if (subjectId.HasValue && !await subjectRepo.AnyAsync(subjectId.Value, cancellationToken))
-        {
-            return Results.BadRequest(new { code = "invalid_subject", message = "Subject does not exist." });
-        }
-
-        var @class = new Class
-        {
-            Name = name!.Trim(),
-            NormalizedName = normalizedName!,
-            LecturerId = lecturerId,
-            SubjectId = subjectId
-        };
-        if (subjectId.HasValue)
-        {
-            @class.EnrollmentSubjectId = subjectId.Value;
-        }
-
         try
         {
-            @class = await classRepo.CreateAsync(@class, cancellationToken);
+            var @class = await createAsync();
+            return Results.Created($"/classes/{@class.Id}", ClassSummary.FromDomain(@class));
+        }
+        catch (CatalogValidationException ex)
+        {
+            return Results.BadRequest(new { code = ex.Code, message = ex.Message });
         }
         catch (CatalogConflictException ex)
         {
@@ -131,61 +103,26 @@ public static class ClassesEndpoints
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
-
-        return Results.Created($"/classes/{@class.Id}", ClassSummary.From(@class));
     }
 
     private static async Task<IResult> UpdateClassAsync(
         Guid id,
         UpdateClassRequest request,
-        ISubjectRepository subjectRepo,
-        IClassRepository classRepo,
+        IClassService service,
         CancellationToken cancellationToken)
     {
-        if (!request.LecturerId.HasValue && !request.SubjectId.HasValue)
+        try
         {
-            return Results.BadRequest(new { code = "empty_update", message = "No class change was provided." });
+            var @class = await service.UpdateAsync(id, request.LecturerId, request.SubjectId, cancellationToken);
+            return Results.Ok(ClassSummary.FromDomain(@class));
         }
-
-        var @class = await classRepo.GetByIdAsync(id, cancellationToken);
-        if (@class is null)
+        catch (CatalogNotFoundException)
         {
             return Results.NotFound();
         }
-
-        if (request.LecturerId.HasValue)
+        catch (CatalogValidationException ex)
         {
-            if (request.LecturerId == Guid.Empty)
-            {
-                return Results.BadRequest(new { code = "invalid_lecturer", message = "LecturerId is required." });
-            }
-
-            @class.LecturerId = request.LecturerId.Value;
-        }
-
-        if (request.SubjectId.HasValue && request.SubjectId != @class.SubjectId)
-        {
-            if (request.SubjectId == Guid.Empty || !await subjectRepo.AnyAsync(request.SubjectId.Value, cancellationToken))
-            {
-                return Results.BadRequest(new { code = "invalid_subject", message = "Subject does not exist." });
-            }
-
-            if (await classRepo.AnyWithEnrollmentsAsync(id, cancellationToken))
-            {
-                return Results.Conflict(new
-                {
-                    code = "class_subject_locked",
-                    message = "A class with enrollments cannot be moved to another subject."
-                });
-            }
-
-            @class.SubjectId = request.SubjectId.Value;
-            @class.EnrollmentSubjectId = request.SubjectId.Value;
-        }
-
-        try
-        {
-            @class = await classRepo.UpdateAsync(@class, cancellationToken);
+            return Results.BadRequest(new { code = ex.Code, message = ex.Message });
         }
         catch (CatalogConflictException ex)
         {
@@ -195,51 +132,5 @@ public static class ClassesEndpoints
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
-
-        return Results.Ok(ClassSummary.From(@class));
-    }
-
-    private static string? NormalizeName(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? null : name.Trim().ToUpperInvariant();
-
-    private static IResult? ValidateClassInput(string? normalizedName, Guid lecturerId, Guid? subjectId)
-    {
-        if (normalizedName is null)
-        {
-            return Results.BadRequest(new { code = "invalid_class_name", message = "Name is required." });
-        }
-
-        if (normalizedName.Length > 256)
-        {
-            return Results.BadRequest(new { code = "class_name_too_long", message = "Name must be at most 256 characters." });
-        }
-
-        if (lecturerId == Guid.Empty)
-        {
-            return Results.BadRequest(new { code = "invalid_lecturer", message = "LecturerId is required." });
-        }
-
-        if (subjectId == Guid.Empty)
-        {
-            return Results.BadRequest(new { code = "invalid_subject", message = "SubjectId is required." });
-        }
-
-        return null;
     }
 }
-
-public sealed record LegacyClassSummary(Guid Id, string Name, Guid? LecturerId);
-
-public sealed record ClassSummary(Guid Id, string Name, Guid LecturerId, Guid? SubjectId, string? SubjectCode)
-{
-    public static ClassSummary From(Class item) =>
-        new(item.Id, item.Name, item.LecturerId, item.SubjectId, item.Subject?.Code);
-}
-
-public sealed record RegistrationClassOption(Guid Id, string Name, Guid SubjectId);
-
-public sealed record CreateLegacyClassRequest(string? Name, Guid LecturerId);
-
-public sealed record CreateSubjectScopedClassRequest(string? Name, Guid LecturerId, Guid SubjectId);
-
-public sealed record UpdateClassRequest(Guid? LecturerId, Guid? SubjectId);

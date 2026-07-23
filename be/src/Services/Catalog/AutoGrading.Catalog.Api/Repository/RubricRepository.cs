@@ -34,8 +34,11 @@ public sealed class RubricRepository(CatalogDbContext db) : IRubricRepository
         return query.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
-    public Task<Rubric?> GetByAssignmentIdAsync(Guid assignmentId, CancellationToken cancellationToken) =>
-        db.Rubrics.Include(r => r.Criteria).FirstOrDefaultAsync(r => r.AssignmentId == assignmentId, cancellationToken);
+    public Task<Rubric?> GetByAssignmentIdAsync(Guid assignmentId, bool includeCriteria, CancellationToken cancellationToken)
+    {
+        IQueryable<Rubric> query = includeCriteria ? db.Rubrics.Include(r => r.Criteria) : db.Rubrics;
+        return query.FirstOrDefaultAsync(r => r.AssignmentId == assignmentId, cancellationToken);
+    }
 
     public async Task<Rubric> CreateAsync(Rubric rubric, CancellationToken cancellationToken)
     {

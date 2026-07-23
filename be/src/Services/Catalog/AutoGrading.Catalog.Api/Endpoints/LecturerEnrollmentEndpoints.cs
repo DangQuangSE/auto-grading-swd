@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AutoGrading.Catalog.Api.Interfaces;
 
 namespace AutoGrading.Catalog.Api.Endpoints;
 
@@ -19,7 +20,7 @@ internal static class LecturerEnrollmentEndpoints
         Guid subjectId,
         Guid? lecturerId,
         ClaimsPrincipal caller,
-        EnrollmentQueries queries,
+        IEnrollmentService service,
         CancellationToken cancellationToken)
     {
         Guid effectiveLecturerId;
@@ -41,6 +42,6 @@ internal static class LecturerEnrollmentEndpoints
             return Results.Unauthorized();
         }
 
-        return Results.Ok(await queries.ListStudentIdsForLecturerAsync(effectiveLecturerId, subjectId, cancellationToken));
+        return Results.Ok(await service.ListStudentIdsForLecturerAsync(effectiveLecturerId, subjectId, cancellationToken));
     }
 }

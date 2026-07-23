@@ -34,6 +34,6 @@ public static class CatalogConstants
     public const string EnrollmentNotFound = "Enrollment does not exist.";
 
     public const string InvalidRubric = "Rubric does not exist.";
-    public const string RubricStatusMismatch = "Rubric {0} is '{1}', not '{2}' — {3} instead.";
+    public const string RubricStatusMismatch = "Rubric {0} is '{1}', not '{2}' — {3}.";
     public const string RubricConcurrentModification = "Rubric {0} was modified concurrently; reload and try again.";
 }

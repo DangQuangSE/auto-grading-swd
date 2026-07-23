@@ -1,0 +1,27 @@
+{
+  "target": "phase-06-di-wiring",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/catalog-layered-refactor/quality/phase-06-di-wiring-quality-report.json",
+  "reviewed_files": [
+    "be/AutoGrading.sln",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/AssignmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/ClassesEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/EnrollmentsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/RubricsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Endpoints/SubjectsEndpoints.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IEnrollmentRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/ISubjectRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/RubricParsingJob.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/EnrollmentRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/RubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/SubjectRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/EnrollmentService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/RubricService.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Service/SubjectService.cs"
+  ],
+  "source_fingerprint": "sha256:6e824185a21901adaef2f3ffb8aff4ca5f0154404d7d4b102ce080eb12a7630d",
+  "reviewed_at": "2026-07-24T00:00:00Z",
+  "open_blocking_findings": 0
+}

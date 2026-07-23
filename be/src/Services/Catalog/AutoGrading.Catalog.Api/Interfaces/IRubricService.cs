@@ -8,11 +8,18 @@ public interface IRubricService
 
     Task<Rubric?> GetByIdAsync(Guid id, bool includeCriteria, CancellationToken cancellationToken);
 
-    /// <summary>Validates scope/authorization and creates-or-updates the rubric's metadata row; does not touch object storage
-    /// or Hangfire (the endpoint uploads the file first and enqueues <c>RubricParsingJob</c> after this call succeeds).
-    /// Throws <see cref="RubricForbiddenException"/> if <paramref name="userId"/>/<paramref name="isAdmin"/> aren't authorized
-    /// for an existing rubric, or a <see cref="RubricScope.SchoolWide"/> upload is attempted by a non-admin.</summary>
-    Task<RubricUploadResult> UploadAsync(RubricUploadRequest request, Guid userId, bool isAdmin, CancellationToken cancellationToken);
+    /// <summary>Must be called BEFORE the endpoint uploads anything to object storage — validates scope/authorization
+    /// so an unauthorized attempt never touches storage. Returns the id of the rubric this upload would replace (matched
+    /// by <paramref name="assignmentId"/>), or <c>null</c> for a brand-new rubric. Throws <see cref="RubricForbiddenException"/>
+    /// if a <see cref="RubricScope.SchoolWide"/> upload is attempted by a non-admin, or the caller isn't authorized for
+    /// the existing rubric.</summary>
+    Task<Guid?> AuthorizeUploadAsync(Guid? assignmentId, RubricScope scope, Guid userId, bool isAdmin, CancellationToken cancellationToken);
+
+    /// <summary>Creates-or-updates the rubric's metadata row; does not touch object storage or Hangfire (the endpoint
+    /// uploads the file before calling <see cref="AuthorizeUploadAsync"/> and enqueues <c>RubricParsingJob</c> after this
+    /// call succeeds). <paramref name="existingRubricId"/> must be the value <see cref="AuthorizeUploadAsync"/> returned
+    /// for this same upload attempt.</summary>
+    Task<RubricUploadResult> UploadAsync(Guid? existingRubricId, RubricUploadRequest request, Guid userId, CancellationToken cancellationToken);
 
     /// <summary>Throws <see cref="CatalogNotFoundException"/> if not found, <see cref="RubricForbiddenException"/> if not
     /// authorized, or <see cref="CatalogConflictException"/> if the rubric's status isn't <see cref="RubricStatus.Parsing"/>.

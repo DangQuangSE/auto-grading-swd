@@ -11,6 +11,10 @@ public interface ISubjectService
 
     Task<Subject?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>Added in Phase 3 — lets <c>ClassService</c> check subject existence without depending on
+    /// <see cref="ISubjectRepository"/> directly (keeps cross-domain calls at the Service, not Repository, layer).</summary>
+    Task<bool> AnyAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>Throws <see cref="CatalogValidationException"/> if <paramref name="code"/>/<paramref name="name"/> are
     /// missing or too long, or <see cref="CatalogConflictException"/> if the code is already taken.</summary>
     Task<Subject> CreateAsync(string? code, string? name, CancellationToken cancellationToken);

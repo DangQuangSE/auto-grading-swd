@@ -3,7 +3,7 @@
 **Date:** 2026-07-23
 **Mode:** Hard
 **Test flag:** default (no `--tdd` — `AutoGrading.Catalog.Api.Tests/` directory exists but contains no `.csproj` or source files; verification is manual per phase, matching Submission/Grading/Identity precedent)
-**Status:** 🟡 In Progress
+**Status:** 🟢 Complete — all 6 phases APPROVED, receipts issued
 
 ---
 
@@ -19,11 +19,11 @@ Behavior-preserving refactor — no API contract change, no new business rules.
 ## Phases
 
 - [x] Phase 1: [phase-01-constants-and-interfaces.md](./phase-01-constants-and-interfaces.md) — additive only, zero behavior change. Quality: APPROVED (receipt issued). Testing: manual (build clean).
-- [ ] Phase 2: [phase-02-repository.md](./phase-02-repository.md) — move EF Core access behind 5 repositories. Quality: not evaluated. Testing: manual (build clean, grep-verified).
-- [ ] Phase 3: [phase-03-service.md](./phase-03-service.md) — move business logic into 5 services. Quality: not evaluated. Testing: manual (build clean, ASP.NET-free Service/ confirmed).
-- [ ] Phase 4: [phase-04-slim-endpoints-and-dto.md](./phase-04-slim-endpoints-and-dto.md) — endpoints become bind → call service → map response. Quality: not evaluated. Testing: manual (build clean, DTO mirroring verified).
-- [ ] Phase 5: [phase-05-update-jobs.md](./phase-05-update-jobs.md) — `RubricParsingJob` depends on `IRubricRepository`, not `CatalogDbContext`. Quality: not evaluated. Testing: manual (build clean, no EF Core in Jobs/).
-- [ ] Phase 6: [phase-06-di-wiring.md](./phase-06-di-wiring.md) — wire everything in `Program.cs`, full manual regression pass. Quality: not evaluated. Testing: manual (full-solution build clean, 25-route comprehensive E2E regression).
+- [x] Phase 2: [phase-02-repository.md](./phase-02-repository.md) — move EF Core access behind 5 repositories. Quality: APPROVED (receipt issued). Testing: manual (build clean, grep-verified).
+- [x] Phase 3: [phase-03-service.md](./phase-03-service.md) — move business logic into 5 services. Quality: APPROVED (receipt issued). Testing: manual (build clean, ASP.NET-free Service/ confirmed).
+- [x] Phase 4: [phase-04-slim-endpoints-and-dto.md](./phase-04-slim-endpoints-and-dto.md) — endpoints become bind → call service → map response. Quality: APPROVED (receipt issued). Testing: manual (build clean, DTO mirroring verified).
+- [x] Phase 5: [phase-05-update-jobs.md](./phase-05-update-jobs.md) — `RubricParsingJob` depends on `IRubricRepository`, not `CatalogDbContext`. Quality: APPROVED (receipt issued). Testing: manual (build clean, no EF Core in Jobs/).
+- [x] Phase 6: [phase-06-di-wiring.md](./phase-06-di-wiring.md) — wire everything in `Program.cs`, full manual regression pass. Quality: APPROVED (receipt issued). Testing: manual — build/wiring/structural checks verified directly; live 25-route E2E regression (Swagger/Postman against a running stack) left for the user, per Submission/Grading/Identity precedent.
 
 ## Research Summary
 
@@ -137,6 +137,16 @@ The job currently injects `CatalogDbContext` directly (line 16). Phase 5 updates
 Whichever repository owns `Class` (`IClassRepository`) must preserve this composite-FK relationship exactly as configured in `OnModelCreating`. `IEnrollmentRepository`'s queries joining into `Class` (e.g. `ListStudentIdsForLecturerAsync` joining `StudentEnrollment.Class.LecturerId` on line 92 of EnrollmentQueries) may need to fetch `Class` data mid-transaction.
 
 **Decision:** `IEnrollmentRepository`'s methods query `Class` data directly using its own `DbContext` reference (`CatalogDbContext` is scoped and shared across all repositories within one request) rather than calling out to `IClassRepository.GetAsync()`, since a cross-repository call must never happen inside `EnrollmentCommands`' existing Serializable-transaction boundary (the transaction was never designed to span two repository instances). Both repositories share the same underlying `CatalogDbContext` instance within one request scope anyway, so querying `Class` directly inside `EnrollmentRepository` is safe and preserves atomicity.
+
+### 8. Phase 4: two confirmed minor API-contract cleanups (user-approved)
+
+`AssignmentResponse`/`RubricResponse` (new in `Dto/`) deliberately omit fields that the original raw-entity JSON serialization always emitted as `null`/`[]`/a raw EF concurrency token, with zero client-facing purpose:
+
+- `Assignment.Subject` (always `null`), `Assignment.Rubrics` (always `[]`) — no code path ever `.Include()`s them.
+- `Rubric.Subject` (always `null`), `Rubric.Assignment` (always `null`) — same reason.
+- `Rubric.RowVersion` — unlike Enrollment (which round-trips its RowVersion through `UpsertEnrollmentRequest` for optimistic concurrency), no Rubric endpoint ever accepts a RowVersion back from the client; exposing it was a pure EF-implementation-detail leak.
+
+**Explicitly confirmed with the user via AskUserQuestion before implementing** (asked in Vietnamese per the user's standing preference) — chose to drop these fields rather than reproduce them byte-for-byte. Documented here and in each DTO's own XML doc comment so a future reader doesn't mistake this for scope creep.
 
 ## Dependencies
 

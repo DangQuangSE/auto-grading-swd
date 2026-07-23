@@ -1,0 +1,21 @@
+{
+  "mode": "gate",
+  "target": "phase-05-update-jobs",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-24T12:00:00Z",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/RubricParsingJob.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/DocxTextExtractor.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IRubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/RubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

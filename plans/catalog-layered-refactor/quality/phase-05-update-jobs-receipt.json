@@ -1,0 +1,16 @@
+{
+  "target": "phase-05-update-jobs",
+  "verdict": "APPROVED",
+  "policy_version": "1.0.0",
+  "report_path": "plans/catalog-layered-refactor/quality/phase-05-update-jobs-quality-report.json",
+  "reviewed_files": [
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Interfaces/IRubricRepository.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/DocxTextExtractor.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Jobs/RubricParsingJob.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Program.cs",
+    "be/src/Services/Catalog/AutoGrading.Catalog.Api/Repository/RubricRepository.cs"
+  ],
+  "source_fingerprint": "sha256:d78be9b27429dc3310b34c613a9b7a8f1977d339de431e722ca713ca1bc9f6b0",
+  "reviewed_at": "2026-07-24T12:00:00Z",
+  "open_blocking_findings": 0
+}
